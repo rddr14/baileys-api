@@ -1,0 +1,12 @@
+node_modules/
+npm-debug.log
+.env
+auth_info_baileys_*
+baileys_store.json
+labels_*.json
+webhooks.json
+uploads/*
+!uploads/.gitkeep
+.git/
+.gitignore
+README.md

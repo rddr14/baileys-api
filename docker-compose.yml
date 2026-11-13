@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  baileys-api:
+    build: .
+    container_name: baileys-api
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - PORT=3000
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./:/app
+      - /app/node_modules

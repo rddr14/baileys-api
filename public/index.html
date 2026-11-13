@@ -1,0 +1,1860 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baileys API - Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #10B981;
+            --primary-hover: #059669;
+            --primary-glow: rgba(16, 185, 129, 0.35);
+            --bg-dark: #090d16;
+            --surface: rgba(22, 30, 49, 0.75);
+            --surface-hover: rgba(30, 41, 67, 0.9);
+            --surface-border: rgba(255, 255, 255, 0.08);
+            --surface-border-active: rgba(16, 185, 129, 0.4);
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --blue: #3b82f6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(16, 185, 129, 0.12), transparent 30%),
+                radial-gradient(circle at 90% 10%, rgba(59, 130, 246, 0.12), transparent 30%),
+                radial-gradient(circle at 50% 90%, rgba(139, 92, 246, 0.08), transparent 40%);
+            background-attachment: fixed;
+        }
+
+        .container {
+            max-width: 1240px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1.25rem;
+            border-bottom: 1px solid var(--surface-border);
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+        }
+
+        .brand-logo {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #10B981, #3B82F6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .brand h1 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            background: linear-gradient(to right, #10B981, #3B82F6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .btn-header {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.55rem 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--surface-border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .btn-header:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-header.primary {
+            background: var(--primary);
+            color: white;
+            border-color: transparent;
+        }
+
+        .btn-header.primary:hover {
+            background: var(--primary-hover);
+        }
+
+        /* TELA DE SESSÕES (HOME) */
+        #sessionsView {
+            display: block;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .section-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .section-header p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        .sessions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .session-card {
+            background: var(--surface);
+            backdrop-filter: blur(14px);
+            border: 1px solid var(--surface-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 190px;
+        }
+
+        .session-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--surface-border-active);
+            box-shadow: 0 12px 24px -10px rgba(16, 185, 129, 0.25);
+            background: var(--surface-hover);
+        }
+
+        .session-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .session-card-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .session-card-body {
+            margin-bottom: 1.25rem;
+        }
+
+        .session-info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.35rem;
+        }
+
+        .session-info-item strong {
+            color: var(--text);
+        }
+
+        .session-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--surface-border);
+            padding-top: 0.85rem;
+            margin-top: auto;
+        }
+
+        .session-card-footer span {
+            font-size: 0.8rem;
+            color: var(--primary);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        /* STATUS BADGE */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--surface-border);
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #94a3b8;
+        }
+
+        .status-badge.connected {
+            color: #34d399;
+            background: rgba(16, 185, 129, 0.12);
+            border-color: rgba(16, 185, 129, 0.25);
+        }
+        .status-badge.connected .status-dot {
+            background: #10B981;
+            box-shadow: 0 0 8px #10B981;
+        }
+
+        .status-badge.qr_ready, .status-badge.connecting {
+            color: #fbbf24;
+            background: rgba(245, 158, 11, 0.12);
+            border-color: rgba(245, 158, 11, 0.25);
+        }
+        .status-badge.qr_ready .status-dot, .status-badge.connecting .status-dot {
+            background: #f59e0b;
+            box-shadow: 0 0 8px #f59e0b;
+        }
+
+        .status-badge.offline {
+            color: #94a3b8;
+        }
+
+        /* CARD NOVA SESSÃO */
+        .new-session-card {
+            border: 2px dashed rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.02);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            min-height: 190px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 1.5rem;
+        }
+
+        .new-session-card:hover {
+            border-color: var(--primary);
+            background: rgba(16, 185, 129, 0.04);
+            transform: translateY(-4px);
+        }
+
+        .new-session-card .plus-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: var(--primary);
+            transition: all 0.2s;
+        }
+
+        .new-session-card:hover .plus-icon {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 0 16px var(--primary-glow);
+        }
+
+        /* TELA DE DETALHE DA SESSÃO */
+        #sessionDetailView {
+            display: none;
+        }
+
+        .detail-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.75rem;
+            background: var(--surface);
+            backdrop-filter: blur(12px);
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            border: 1px solid var(--surface-border);
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .detail-session-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .btn-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid var(--surface-border);
+            color: var(--text);
+            padding: 0.5rem 0.9rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* SELETOR DE TIPO DE DISPARO (TABS/CHIPS) */
+        .type-selector {
+            display: flex;
+            gap: 0.5rem;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 0.35rem;
+            border-radius: 10px;
+            border: 1px solid var(--surface-border);
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .type-btn {
+            flex: 1;
+            min-width: 100px;
+            padding: 0.6rem 0.9rem;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+        }
+
+        .type-btn:hover {
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .type-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: var(--surface);
+            backdrop-filter: blur(14px);
+            border: 1px solid var(--surface-border);
+            border-radius: 16px;
+            padding: 1.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 700;
+        }
+
+        .form-group {
+            margin-bottom: 1.15rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.45rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        input[type="text"], input[type="url"], textarea, select, input[type="file"] {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--surface-border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary-glow);
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem 1.25rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: var(--primary-hover);
+        }
+
+        button.danger {
+            background: transparent;
+            border: 1px solid var(--danger);
+            color: var(--danger);
+        }
+
+        button.danger:hover {
+            background: var(--danger);
+            color: white;
+        }
+
+        .qr-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 240px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 1.25rem;
+            border: 1px dashed var(--surface-border);
+        }
+
+        .qr-container img {
+            max-width: 200px;
+            border-radius: 8px;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            background: white;
+            padding: 6px;
+        }
+
+        .loader {
+            width: 38px;
+            height: 38px;
+            border: 3px solid var(--surface-border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: #1e293b;
+            color: white;
+            padding: 0.85rem 1.25rem;
+            border-radius: 8px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            z-index: 1000;
+            font-size: 0.9rem;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        pre {
+            background: rgba(0, 0, 0, 0.35);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.8rem;
+            color: #34d399;
+            margin-top: 1rem;
+            max-height: 180px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* MODAL NOVA SESSAO */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(6px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            padding: 1.5rem;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: #131b2e;
+            border: 1px solid var(--surface-border);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 420px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+        }
+
+        .modal h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .modal p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .btn-cancel {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text);
+        }
+
+        .btn-cancel:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        @media (max-width: 820px) {
+            .grid { grid-template-columns: 1fr; }
+            .sessions-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER PRINCIPAL -->
+        <header>
+            <div class="brand" onclick="goHome()">
+                <div class="brand-logo">⚡</div>
+                <div>
+                    <h1>Baileys API Engine</h1>
+                </div>
+            </div>
+            
+            <div class="header-actions">
+                <button class="btn-header" onclick="loadSessionsList()">🔄 Atualizar</button>
+                <button class="btn-header primary" onclick="openNewSessionModal()">➕ Nova Sessão</button>
+            </div>
+        </header>
+
+        <!-- ========================================== -->
+        <!-- VIEW 1: LISTAGEM DE SESSÕES (TELA INICIAL) -->
+        <!-- ========================================== -->
+        <div id="sessionsView">
+            <div class="section-header">
+                <div>
+                    <h2>Sessões Cadastradas</h2>
+                    <p>Selecione uma sessão para gerenciar conexões, mensagens, etiquetas e webhook.</p>
+                </div>
+            </div>
+
+            <div class="sessions-grid" id="sessionsCardsContainer">
+                <div class="loader" style="margin: 2rem auto;"></div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- VIEW 2: DETALHES DA SESSÃO SELECIONADA     -->
+        <!-- ========================================== -->
+        <div id="sessionDetailView">
+            <!-- Barra superior da sessão ativa -->
+            <div class="detail-topbar">
+                <div class="detail-session-info">
+                    <button class="btn-back" onclick="goHome()">← Voltar às Sessões</button>
+                    <div>
+                        <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Sessão Ativa:</span>
+                        <h2 id="activeSessionTitle" style="font-size: 1.35rem; font-weight: 800; color: var(--text);"></h2>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <div class="status-badge" id="statusBadge">
+                        <div class="status-dot"></div>
+                        <span id="statusText">Verificando...</span>
+                    </div>
+                    <button class="btn-header" onclick="checkStatus()" style="width: auto;">🔄 Status</button>
+                </div>
+            </div>
+
+            <!-- GRID PRINCIPAL DE AÇÕES DA SESSÃO -->
+            <div class="grid">
+                <!-- COLUNA 1 -->
+                <div class="column">
+                    <!-- Conexão WhatsApp & QR Code -->
+                    <div class="card" style="margin-bottom: 1.5rem;">
+                        <h2>📱 Conexão WhatsApp</h2>
+                        <div class="qr-container" id="qrContainer">
+                            <div class="loader" id="qrLoader"></div>
+                            <img id="qrImage" src="" alt="QR Code">
+                            <p id="qrMessage" style="margin-top: 1rem; color: var(--text-muted); text-align: center; font-size: 0.9rem;">
+                                Conectando ao WhatsApp...
+                            </p>
+                        </div>
+                        <div style="margin-top: 1.25rem; display: flex; gap: 0.75rem;">
+                            <button onclick="startSession()">Conectar / Reiniciar</button>
+                            <button class="danger" onclick="logoutSession()">Desconectar (Reset)</button>
+                        </div>
+                    </div>
+
+                    <!-- Card Unificado: Disparar Mensagem por Tipo -->
+                    <div class="card">
+                        <h2>🚀 Disparar Mensagem</h2>
+                        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+                            Selecione o tipo de mensagem abaixo para exibir os campos específicos:
+                        </p>
+
+                        <!-- Seletor de Tipo (Abas / Chips) -->
+                        <div class="type-selector">
+                            <button type="button" class="type-btn active" id="tabBtn_text" onclick="switchMessageType('text')">💬 Texto</button>
+                            <button type="button" class="type-btn" id="tabBtn_media" onclick="switchMessageType('media')">📎 Mídia</button>
+                            <button type="button" class="type-btn" id="tabBtn_buttons" onclick="switchMessageType('buttons')">🔘 Botões</button>
+                            <button type="button" class="type-btn" id="tabBtn_poll" onclick="switchMessageType('poll')">📊 Enquete</button>
+                            <button type="button" class="type-btn" id="tabBtn_contact" onclick="switchMessageType('contact')">👤 Contato</button>
+                            <button type="button" class="type-btn" id="tabBtn_location" onclick="switchMessageType('location')">📍 Localização</button>
+                        </div>
+
+                        <!-- Campo comum: Número Destino -->
+                        <div class="form-group">
+                            <label>Número Destino (com DDD ou JID de grupo/contato)</label>
+                            <input type="text" id="commonNumber" required placeholder="5561999999999 ou 120363024888@g.us">
+                        </div>
+
+                        <!-- 1. CAMPOS DE TEXTO -->
+                        <div id="typeFields_text">
+                            <div class="form-group">
+                                <label>Mensagem de Texto</label>
+                                <textarea id="textMessage" rows="4" placeholder="Escreva a mensagem aqui..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Simular Digitação (opcional em ms)</label>
+                                <input type="text" id="textTypingDelay" placeholder="ex: 2000 (para 2 segundos de 'digitando...')">
+                            </div>
+                            <button type="button" onclick="submitCurrentType('text')">Disparar Mensagem de Texto 🚀</button>
+                        </div>
+
+                        <!-- 2. CAMPOS DE MÍDIA -->
+                        <div id="typeFields_media" style="display: none;">
+                            <div class="form-group">
+                                <label>Tipo de Mídia</label>
+                                <select id="mediaType">
+                                    <option value="image">Imagem</option>
+                                    <option value="video">Vídeo</option>
+                                    <option value="document">Documento</option>
+                                    <option value="audio">Áudio (Voice Note)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Arquivo</label>
+                                <input type="file" id="mediaFile">
+                            </div>
+                            <div class="form-group">
+                                <label>Legenda (opcional)</label>
+                                <input type="text" id="mediaCaption" placeholder="Legenda da mídia...">
+                            </div>
+                            <button type="button" onclick="submitCurrentType('media')">Enviar Mídia 📎</button>
+                        </div>
+
+                        <!-- 3. CAMPOS DE BOTÕES INTERATIVOS -->
+                        <div id="typeFields_buttons" style="display: none;">
+                            <div class="form-group">
+                                <label>Título / Cabeçalho (opcional)</label>
+                                <input type="text" id="btnTitle" placeholder="Ex: Central de Atendimento">
+                            </div>
+                            <div class="form-group">
+                                <label>Mensagem Principal</label>
+                                <textarea id="btnBody" rows="3" placeholder="Como podemos te ajudar hoje?"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Rodapé (opcional)</label>
+                                <input type="text" id="btnFooter" placeholder="Ex: Quark GPS">
+                            </div>
+                            <div class="form-group">
+                                <label>Configuração dos Botões</label>
+                                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                    <input type="text" id="btnText1" placeholder="Texto Botão 1 (Resposta rápida)" value="Falar com Atendente 👤">
+                                </div>
+                                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                    <input type="text" id="btnText2" placeholder="Texto Botão 2 (Resposta rápida)" value="Ver Planos 📋">
+                                </div>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="text" id="btnText3" placeholder="Texto Botão 3" value="Acessar Portal 🌐">
+                                    <input type="url" id="btnUrl3" placeholder="https://novo.quarkgps.com (Link URL)">
+                                </div>
+                            </div>
+                            <button type="button" onclick="submitCurrentType('buttons')">Enviar Botões Interativos 🔘</button>
+                        </div>
+
+                        <!-- 4. CAMPOS DE ENQUETE INTERATIVA -->
+                        <div id="typeFields_poll" style="display: none;">
+                            <div class="form-group">
+                                <label>Pergunta da Enquete</label>
+                                <input type="text" id="pollName" placeholder="Ex: Qual seu horário de preferência?">
+                            </div>
+                            <div class="form-group">
+                                <label>Opções de Resposta (mínimo 2)</label>
+                                <input type="text" id="pollOpt1" placeholder="Opção 1 (ex: Manhã)" style="margin-bottom: 0.5rem;">
+                                <input type="text" id="pollOpt2" placeholder="Opção 2 (ex: Tarde)" style="margin-bottom: 0.5rem;">
+                                <input type="text" id="pollOpt3" placeholder="Opção 3 (opcional, ex: Noite)" style="margin-bottom: 0.5rem;">
+                                <input type="text" id="pollOpt4" placeholder="Opção 4 (opcional)">
+                            </div>
+                            <div class="form-group">
+                                <label>Máximo de Opções Selecionáveis</label>
+                                <select id="pollSelectableCount">
+                                    <option value="1" selected>1 (Apenas uma escolha)</option>
+                                    <option value="2">2 opções</option>
+                                    <option value="3">3 opções</option>
+                                </select>
+                            </div>
+                            <button type="button" onclick="submitCurrentType('poll')">Disparar Enquete 📊</button>
+                        </div>
+
+                        <!-- 5. CAMPOS DE CONTATO (vCard) -->
+                        <div id="typeFields_contact" style="display: none;">
+                            <div class="form-group">
+                                <label>Nome do Contato</label>
+                                <input type="text" id="contactName" placeholder="Ex: Suporte Técnico Quark">
+                            </div>
+                            <div class="form-group">
+                                <label>Número do Contato (com DDD)</label>
+                                <input type="text" id="contactPhone" placeholder="Ex: 5561999999999">
+                            </div>
+                            <button type="button" onclick="submitCurrentType('contact')">Enviar Cartão de Contato 👤</button>
+                        </div>
+
+                        <!-- 6. CAMPOS DE LOCALIZAÇÃO -->
+                        <div id="typeFields_location" style="display: none;">
+                            <div style="display: flex; gap: 0.5rem;">
+                                <div class="form-group" style="flex: 1;">
+                                    <label>Latitude</label>
+                                    <input type="text" id="locLat" placeholder="-15.7942">
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label>Longitude</label>
+                                    <input type="text" id="locLng" placeholder="-47.8822">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Nome do Local (opcional)</label>
+                                <input type="text" id="locName" placeholder="Ex: Sede Quark GPS">
+                            </div>
+                            <div class="form-group">
+                                <label>Endereço Completo (opcional)</label>
+                                <input type="text" id="locAddress" placeholder="Ex: Brasília, DF - Brasil">
+                            </div>
+                            <button type="button" onclick="submitCurrentType('location')">Enviar Localização 📍</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUNA 2 -->
+                <div class="column">
+
+                    <!-- Configuração de Webhook -->
+                    <div class="card" style="margin-bottom: 1.5rem;">
+                        <h2>🔗 Webhook da Sessão</h2>
+                        <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.85rem;">
+                            URL onde a API enviará as mensagens e status recebidos.
+                        </p>
+                        <form onsubmit="saveWebhook(event)">
+                            <div class="form-group" style="display: flex; gap: 0.5rem;">
+                                <input type="url" id="webhookUrl" placeholder="https://seu-sistema.com/api/webhook" required>
+                                <button type="submit" style="width: auto; white-space: nowrap;">Salvar</button>
+                            </div>
+                        </form>
+                        <div>
+                            <button class="danger" style="font-size: 0.85rem; padding: 0.5rem 1rem;" onclick="deleteWebhook()">Remover Webhook</button>
+                        </div>
+                    </div>
+
+                    <!-- Consultas Rápidas -->
+                    <div class="card">
+                        <h2>🔍 Consultas Rápidas</h2>
+                        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+                            <button style="width: auto; padding: 0.45rem 0.85rem; font-size: 0.8rem;" onclick="fetchData('chats')">Chats</button>
+                            <button style="width: auto; padding: 0.45rem 0.85rem; font-size: 0.8rem;" onclick="fetchData('contacts')">Contatos</button>
+                            <button style="width: auto; padding: 0.45rem 0.85rem; font-size: 0.8rem;" onclick="fetchData('groups')">Grupos</button>
+                        </div>
+                        <pre id="consoleOutput">// Resposta aparecerá aqui...</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEÇÃO DE LABELS / ETIQUETAS (WhatsApp Business) -->
+            <div class="card" style="margin-top: 1.5rem;">
+                <h2>🏷️ Etiquetas (WhatsApp Business)</h2>
+                <p style="color: var(--text-muted); margin-bottom: 1.25rem; font-size: 0.85rem;">
+                    Apenas para contas <strong>WhatsApp Business</strong>. Crie, liste, aplique ou remova etiquetas.
+                </p>
+
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start;">
+                    <!-- Labels existentes -->
+                    <div style="flex: 1.2; min-width: 240px;">
+                        <label>Etiquetas da Conta</label>
+                        <div style="margin-top: 0.5rem;">
+                            <button onclick="loadLabels()" style="margin-bottom: 0.75rem; width: auto; padding: 0.5rem 1rem; font-size: 0.85rem;">Carregar Etiquetas</button>
+                            <div id="labelsGrid" style="display: flex; flex-wrap: wrap; gap: 0.5rem; min-height: 40px;">
+                                <span style="color: var(--text-muted); font-size: 0.85rem;">Clique em "Carregar Etiquetas"...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Criar Nova Etiqueta -->
+                    <div style="flex: 1; min-width: 220px;">
+                        <label>Criar Nova Etiqueta</label>
+                        <div class="form-group" style="margin-top: 0.5rem;">
+                            <input type="text" id="newLabelName" placeholder="Nome (ex: Lead VIP)">
+                        </div>
+                        <div class="form-group">
+                            <select id="newLabelColor">
+                                <option value="0">Cor 0 (Azul)</option>
+                                <option value="1">Cor 1 (Amarelo)</option>
+                                <option value="2">Cor 2 (Cinza)</option>
+                                <option value="3">Cor 3 (Vermelho)</option>
+                                <option value="4">Cor 4 (Roxo)</option>
+                                <option value="5" selected>Cor 5 (Verde)</option>
+                                <option value="6">Cor 6 (Laranja)</option>
+                                <option value="7">Cor 7 (Rosa)</option>
+                            </select>
+                        </div>
+                        <button onclick="createLabel()">Criar Etiqueta ➕</button>
+                    </div>
+
+                    <!-- Aplicar etiqueta em chat -->
+                    <div style="flex: 1; min-width: 220px;">
+                        <label>Aplicar ao Chat</label>
+                        <div class="form-group" style="margin-top: 0.5rem;">
+                            <input type="text" id="labelNumber" placeholder="Número (ex: 5561...)">
+                        </div>
+                        <div class="form-group">
+                            <input type="text" id="labelId" placeholder="ID da Etiqueta">
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button onclick="applyLabel()">Aplicar ✅</button>
+                            <button class="danger" onclick="removeLabel()">Remover ❌</button>
+                        </div>
+                    </div>
+
+                    <!-- Saída das etiquetas -->
+                    <div style="flex: 1.5; min-width: 240px;">
+                        <label>Saída</label>
+                        <pre id="labelsOutput" style="margin-top: 0.5rem;">// Resposta...</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEÇÃO DE GRUPOS & PARTICIPANTES -->
+            <div class="card" style="margin-top: 1.5rem;">
+                <h2>👥 Gestão de Grupos & Membros</h2>
+                <p style="color: var(--text-muted); margin-bottom: 1.25rem; font-size: 0.85rem;">
+                    Consulte todos os grupos dos quais a conta participa, explore membros/administradores e adicione participantes.
+                </p>
+
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <!-- Seletor de Grupo -->
+                    <div style="flex: 1.2; min-width: 280px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <label style="margin-bottom: 0;">Selecione o Grupo</label>
+                            <button type="button" onclick="loadSessionGroups()" style="width: auto; padding: 0.35rem 0.75rem; font-size: 0.8rem;">🔄 Carregar Grupos</button>
+                        </div>
+                        <div class="form-group">
+                            <select id="groupSelect" onchange="onGroupSelected()" style="font-size: 0.85rem;">
+                                <option value="">-- Clique em Carregar Grupos --</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Ação: Adicionar Participante -->
+                        <div style="background: rgba(15, 23, 42, 0.4); padding: 1rem; border-radius: 8px; border: 1px solid var(--surface-border); margin-top: 1rem;">
+                            <label style="font-size: 0.85rem;">Adicionar Participante ao Grupo</label>
+                            <div style="display: flex; gap: 0.5rem; margin-top: 0.4rem;">
+                                <input type="text" id="newParticipantNumber" placeholder="5561999999999" style="flex: 1;">
+                                <button type="button" onclick="addGroupMember()" style="width: auto; white-space: nowrap;">Adicionar ➕</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Membros do Grupo -->
+                    <div style="flex: 1.8; min-width: 320px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <label style="margin-bottom: 0;">Participantes do Grupo (<span id="groupMembersCount">0</span>)</label>
+                            <span id="groupSelectedId" style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;"></span>
+                        </div>
+                        <div id="groupMembersList" style="max-height: 240px; overflow-y: auto; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--surface-border); border-radius: 8px; padding: 0.75rem;">
+                            <span style="color: var(--text-muted); font-size: 0.85rem;">Selecione um grupo para listar os membros...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEÇÃO DE VALIDADOR DE NÚMEROS E FOTO DE PERFIL -->
+            <div class="card" style="margin-top: 1.5rem;">
+                <h2>🔍 Validador de Números & Foto de Perfil</h2>
+                <p style="color: var(--text-muted); margin-bottom: 1.25rem; font-size: 0.85rem;">
+                    Verifique em tempo real se um número possui conta no WhatsApp, obtenha seu JID oficial e visualize a foto de perfil.
+                </p>
+
+                <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: center;">
+                    <div style="flex: 1; min-width: 260px;">
+                        <div class="form-group">
+                            <label>Número com DDD</label>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <input type="text" id="checkPhoneInput" placeholder="5561999999999" style="flex: 1;">
+                                <button type="button" onclick="checkPhoneNumberProfile()" style="width: auto; white-space: nowrap;">Consultar 🔎</button>
+                            </div>
+                        </div>
+                        <div id="checkPhoneResultDetails" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; line-height: 1.5;">
+                            Aguardando consulta...
+                        </div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 1rem; background: rgba(15, 23, 42, 0.4); padding: 1rem 1.5rem; border-radius: 12px; border: 1px solid var(--surface-border);">
+                        <img id="checkProfilePic" src="" alt="Foto de Perfil" style="width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary); display: none; background: rgba(255,255,255,0.05);">
+                        <div id="checkProfilePicPlaceholder" style="width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border: 2px dashed var(--surface-border); font-size: 1.5rem; color: var(--text-muted);">
+                            👤
+                        </div>
+                        <div>
+                            <div style="font-weight: 600; font-size: 0.95rem; color: var(--text);" id="checkProfileNameDisplay">Sem consulta</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);" id="checkProfileStatusDisplay">Digite um número e clique em Consultar</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL NOVA SESSÃO -->
+    <div class="modal-overlay" id="newSessionModal">
+        <div class="modal">
+            <h3>Criar Nova Sessão</h3>
+            <p>Dê um identificador único para esta conexão (ex: <code>vendas</code>, <code>atendimento_01</code>).</p>
+            <div class="form-group">
+                <label>Nome / ID da Sessão</label>
+                <input type="text" id="modalSessionInput" placeholder="ex: suporte" autofocus>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeNewSessionModal()">Cancelar</button>
+                <button onclick="confirmCreateSession()">Criar e Abrir</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">Sucesso!</div>
+
+    <script>
+        const API_BASE = '/api';
+        let currentSessionId = null;
+        let statusPollInterval = null;
+
+        // ==========================================
+        // ROTEAMENTO DE TELAS
+        // ==========================================
+
+        function goHome() {
+            currentSessionId = null;
+            if (statusPollInterval) clearInterval(statusPollInterval);
+            document.getElementById('sessionsView').style.display = 'block';
+            document.getElementById('sessionDetailView').style.display = 'none';
+            window.location.hash = '';
+            loadSessionsList();
+        }
+
+        function openSession(sessionId) {
+            currentSessionId = sessionId;
+            window.location.hash = sessionId;
+            document.getElementById('sessionsView').style.display = 'none';
+            document.getElementById('sessionDetailView').style.display = 'block';
+            document.getElementById('activeSessionTitle').textContent = sessionId;
+
+            // Limpa saídas antigas
+            document.getElementById('consoleOutput').textContent = '// Resposta aparecerá aqui...';
+            document.getElementById('labelsOutput').textContent = '// Resposta...';
+            document.getElementById('labelsGrid').innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">Clique em "Carregar Etiquetas"...</span>';
+
+            checkStatus();
+            loadWebhook();
+
+            if (statusPollInterval) clearInterval(statusPollInterval);
+            statusPollInterval = setInterval(checkStatus, 4000);
+        }
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.style.borderLeft = `4px solid ${isError ? 'var(--danger)' : 'var(--primary)'}`;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // ==========================================
+        // CARREGAR LISTA DE SESSÕES (CARDS)
+        // ==========================================
+
+        async function loadSessionsList() {
+            const container = document.getElementById('sessionsCardsContainer');
+            container.innerHTML = '<div class="loader" style="margin: 2rem auto;"></div>';
+
+            try {
+                const res = await fetch(`${API_BASE}/sessions`);
+                const data = await res.json();
+                const sessions = data.sessions || [];
+
+                container.innerHTML = '';
+
+                // Renderiza cada sessão cadastrada
+                sessions.forEach(sess => {
+                    const card = document.createElement('div');
+                    card.className = 'session-card';
+                    card.onclick = () => openSession(sess.sessionId);
+
+                    const statusClass = sess.status === 'connected' ? 'connected' 
+                                      : (sess.status === 'qr_ready' ? 'qr_ready' : 'offline');
+                    const statusLabel = sess.status === 'connected' ? 'Conectado' 
+                                      : (sess.status === 'qr_ready' ? 'Aguardando QR' : (sess.status || 'Desconectado'));
+
+                    card.innerHTML = `
+                        <div>
+                            <div class="session-card-header">
+                                <div class="session-card-title">
+                                    <span>📱</span> ${sess.sessionId}
+                                </div>
+                                <div class="status-badge ${statusClass}">
+                                    <div class="status-dot"></div>
+                                    <span>${statusLabel}</span>
+                                </div>
+                            </div>
+
+                            <div class="session-card-body">
+                                <div class="session-info-item">
+                                    <span>👤 Conta:</span>
+                                    <strong>${sess.name || 'Não identificado'}</strong>
+                                </div>
+                                <div class="session-info-item">
+                                    <span>📞 Número:</span>
+                                    <strong>${sess.phone || 'Sem número'}</strong>
+                                </div>
+                                <div class="session-info-item">
+                                    <span>🔗 Webhook:</span>
+                                    <span style="max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                        ${sess.webhookUrl ? 'Configurado' : 'Não definido'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="session-card-footer">
+                            <span style="color: var(--text-muted); font-size: 0.75rem;">${sess.platform === 'smba' ? '💼 WhatsApp Business' : 'WhatsApp'}</span>
+                            <span>Abrir API →</span>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+
+                // Card para adicionar nova sessão
+                const addCard = document.createElement('div');
+                addCard.className = 'new-session-card';
+                addCard.onclick = openNewSessionModal;
+                addCard.innerHTML = `
+                    <div class="plus-icon">➕</div>
+                    <strong style="color: var(--text);">Adicionar Nova Sessão</strong>
+                    <span style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">Conectar um novo número</span>
+                `;
+                container.appendChild(addCard);
+
+            } catch (err) {
+                container.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; color: var(--danger); padding: 2rem;">
+                        Falha ao carregar as sessões do servidor.
+                    </div>
+                `;
+            }
+        }
+
+        // ==========================================
+        // MODAL NOVA SESSÃO
+        // ==========================================
+
+        function openNewSessionModal() {
+            document.getElementById('newSessionModal').classList.add('active');
+            document.getElementById('modalSessionInput').value = '';
+            document.getElementById('modalSessionInput').focus();
+        }
+
+        function closeNewSessionModal() {
+            document.getElementById('newSessionModal').classList.remove('active');
+        }
+
+        async function confirmCreateSession() {
+            const id = document.getElementById('modalSessionInput').value.trim();
+            if (!id) return showToast('Digite um nome para a sessão', true);
+
+            closeNewSessionModal();
+            try {
+                await fetch(`${API_BASE}/${id}/start`, { method: 'POST' });
+                showToast(`Sessão "${id}" inicializada!`);
+                openSession(id);
+            } catch (e) {
+                showToast('Erro ao iniciar nova sessão', true);
+            }
+        }
+
+        // ==========================================
+        // AÇÕES DA SESSÃO SELECIONADA
+        // ==========================================
+
+        async function checkStatus() {
+            if (!currentSessionId) return;
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/status`);
+                const data = await res.json();
+                
+                const badge = document.getElementById('statusBadge');
+                const text = document.getElementById('statusText');
+                const qrImage = document.getElementById('qrImage');
+                const qrLoader = document.getElementById('qrLoader');
+                const qrMessage = document.getElementById('qrMessage');
+
+                badge.className = 'status-badge';
+                
+                if (data.status === 'connected') {
+                    badge.classList.add('connected');
+                    text.textContent = 'Conectado';
+                    qrLoader.style.display = 'none';
+                    qrImage.style.display = 'none';
+                    qrMessage.textContent = 'Dispositivo operante e conectado.';
+                } else if (data.status === 'qr_ready') {
+                    badge.classList.add('qr_ready');
+                    text.textContent = 'Aguardando Leitura';
+                    loadQr();
+                } else {
+                    text.textContent = data.status || 'Desconectado';
+                    qrLoader.style.display = 'block';
+                    qrImage.style.display = 'none';
+                    qrMessage.textContent = 'Aguardando / Conectando...';
+                }
+            } catch (e) {
+                document.getElementById('statusText').textContent = 'Erro ao checar';
+            }
+        }
+
+        async function loadQr() {
+            if (!currentSessionId) return;
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/qr`);
+                const data = await res.json();
+                
+                const qrImage = document.getElementById('qrImage');
+                const qrLoader = document.getElementById('qrLoader');
+                const qrMessage = document.getElementById('qrMessage');
+
+                if (data.qrCodeBase64) {
+                    qrImage.src = data.qrCodeBase64;
+                    qrImage.style.display = 'block';
+                    qrLoader.style.display = 'none';
+                    qrMessage.textContent = 'Escaneie o QR Code no seu WhatsApp:';
+                }
+            } catch (e) {}
+        }
+
+        async function startSession() {
+            if (!currentSessionId) return;
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/start`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Comando de conexão enviado!');
+                    checkStatus();
+                } else {
+                    showToast(data.error, true);
+                }
+            } catch (e) {
+                showToast('Erro ao iniciar', true);
+            }
+        }
+
+        async function logoutSession() {
+            if (!confirm(`Deseja desconectar e resetar as credenciais da sessão "${currentSessionId}"?`)) return;
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/session`, { method: 'DELETE' });
+                const data = await res.json();
+                showToast(data.message || 'Sessão resetada');
+                checkStatus();
+            } catch (e) {
+                showToast('Erro ao resetar sessão', true);
+            }
+        }
+
+        // ==========================================
+        // MENSAGENS POR TIPO (TEXTO, MÍDIA, BOTÕES)
+        // ==========================================
+
+        let activeMessageType = 'text';
+
+        function switchMessageType(type) {
+            activeMessageType = type;
+            const types = ['text', 'media', 'buttons', 'poll', 'contact', 'location'];
+            types.forEach(t => {
+                const btn = document.getElementById(`tabBtn_${t}`);
+                const panel = document.getElementById(`typeFields_${t}`);
+                if (btn && panel) {
+                    if (t === type) {
+                        btn.classList.add('active');
+                        panel.style.display = 'block';
+                    } else {
+                        btn.classList.remove('active');
+                        panel.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+        async function submitCurrentType(type) {
+            const number = document.getElementById('commonNumber').value.trim();
+            if (!number) return showToast('Preencha o número de destino', true);
+
+            if (type === 'text') {
+                const message = document.getElementById('textMessage').value.trim();
+                const typingDelay = document.getElementById('textTypingDelay').value.trim();
+                if (!message) return showToast('Preencha a mensagem de texto', true);
+
+                try {
+                    const res = await fetch(`${API_BASE}/${currentSessionId}/messages/text`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ number, message, typingDelay })
+                    });
+                    const data = await res.json();
+                    printConsole(data);
+                    if (data.success) {
+                        showToast('Mensagem de texto enviada!');
+                        document.getElementById('textMessage').value = '';
+                    } else {
+                        showToast(data.error || 'Falha ao enviar', true);
+                    }
+                } catch (e) {
+                    showToast('Erro de conexão ao enviar', true);
+                }
+
+            } else if (type === 'media') {
+                const mediaType = document.getElementById('mediaType').value;
+                const fileInput = document.getElementById('mediaFile');
+                const file = fileInput.files[0];
+                const caption = document.getElementById('mediaCaption').value.trim();
+
+                if (!file) return showToast('Selecione um arquivo de mídia', true);
+
+                const formData = new FormData();
+                formData.append('number', number);
+                formData.append('type', mediaType);
+                formData.append('file', file);
+                if (caption) formData.append('caption', caption);
+
+                try {
+                    const res = await fetch(`${API_BASE}/${currentSessionId}/messages/media`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+                    printConsole(data);
+                    if (data.success) {
+                        showToast('Mídia enviada com sucesso!');
+                        fileInput.value = '';
+                        document.getElementById('mediaCaption').value = '';
+                    } else {
+                        showToast(data.error || 'Falha ao enviar mídia', true);
+                    }
+                } catch (e) {
+                    showToast('Erro ao enviar mídia', true);
+                }
+
+            } else if (type === 'buttons') {
+                const title = document.getElementById('btnTitle').value.trim();
+                const body = document.getElementById('btnBody').value.trim();
+                const footer = document.getElementById('btnFooter').value.trim();
+                const text1 = document.getElementById('btnText1').value.trim();
+                const text2 = document.getElementById('btnText2').value.trim();
+                const text3 = document.getElementById('btnText3').value.trim();
+                const url3 = document.getElementById('btnUrl3').value.trim();
+
+                if (!body) return showToast('Preencha a mensagem principal dos botões', true);
+
+                const buttons = [];
+                if (text1) buttons.push({ text: text1, id: 'btn_1' });
+                if (text2) buttons.push({ text: text2, id: 'btn_2' });
+                if (text3) {
+                    if (url3) {
+                        buttons.push({ text: text3, type: 'url', url: url3 });
+                    } else {
+                        buttons.push({ text: text3, id: 'btn_3' });
+                    }
+                }
+
+                try {
+                    const res = await fetch(`${API_BASE}/${currentSessionId}/messages/buttons`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ number, title, body, footer, buttons })
+                    });
+                    const data = await res.json();
+                    printConsole(data);
+                    if (data.success) {
+                        showToast('Botões disparados com sucesso!');
+                    } else {
+                        showToast(data.error || 'Falha ao enviar botões', true);
+                    }
+                } catch (err) {
+                    showToast('Erro de conexão ao enviar botões', true);
+                }
+
+            } else if (type === 'poll') {
+                const name = document.getElementById('pollName').value.trim();
+                const opt1 = document.getElementById('pollOpt1').value.trim();
+                const opt2 = document.getElementById('pollOpt2').value.trim();
+                const opt3 = document.getElementById('pollOpt3').value.trim();
+                const opt4 = document.getElementById('pollOpt4').value.trim();
+                const selectableCount = parseInt(document.getElementById('pollSelectableCount').value) || 1;
+
+                if (!name) return showToast('Informe a pergunta da enquete', true);
+                const values = [opt1, opt2, opt3, opt4].filter(v => v.length > 0);
+                if (values.length < 2) return showToast('Preencha ao menos 2 opções de resposta', true);
+
+                try {
+                    const res = await fetch(`${API_BASE}/${currentSessionId}/messages/poll`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ number, name, values, selectableCount })
+                    });
+                    const data = await res.json();
+                    printConsole(data);
+                    if (data.success) {
+                        showToast('Enquete disparada com sucesso! 📊');
+                    } else {
+                        showToast(data.error || 'Falha ao disparar enquete', true);
+                    }
+                } catch (err) {
+                    showToast('Erro de conexão ao enviar enquete', true);
+                }
+
+            } else if (type === 'contact') {
+                const contactName = document.getElementById('contactName').value.trim();
+                const contactPhone = document.getElementById('contactPhone').value.trim();
+                if (!contactName || !contactPhone) return showToast('Preencha nome e número do contato', true);
+
+                try {
+                    const res = await fetch(`${API_BASE}/${currentSessionId}/messages/contact`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ number, contactName, contactPhone })
+                    });
+                    const data = await res.json();
+                    printConsole(data);
+                    if (data.success) {
+                        showToast('Cartão de contato enviado! 👤');
+                    } else {
+                        showToast(data.error || 'Falha ao enviar contato', true);
+                    }
+                } catch (err) {
+                    showToast('Erro de conexão ao enviar contato', true);
+                }
+
+            } else if (type === 'location') {
+                const lat = parseFloat(document.getElementById('locLat').value);
+                const lng = parseFloat(document.getElementById('locLng').value);
+                const locName = document.getElementById('locName').value.trim();
+                const address = document.getElementById('locAddress').value.trim();
+
+                if (isNaN(lat) || isNaN(lng)) return showToast('Informe valores válidos para Latitude e Longitude', true);
+
+                try {
+                    const res = await fetch(`${API_BASE}/${currentSessionId}/messages/location`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ number, lat, lng, name: locName, address })
+                    });
+                    const data = await res.json();
+                    printConsole(data);
+                    if (data.success) {
+                        showToast('Localização enviada! 📍');
+                    } else {
+                        showToast(data.error || 'Falha ao enviar localização', true);
+                    }
+                } catch (err) {
+                    showToast('Erro de conexão ao enviar localização', true);
+                }
+            }
+        }
+
+        // ==========================================
+        // GESTÃO DE GRUPOS & MEMBROS
+        // ==========================================
+
+        let sessionGroupsList = [];
+
+        async function loadSessionGroups() {
+            if (!currentSessionId) return;
+            const select = document.getElementById('groupSelect');
+            select.innerHTML = '<option value="">Carregando grupos...</option>';
+
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/groups`);
+                const data = await res.json();
+                printConsole(data);
+
+                if (data.success && Array.isArray(data.groups)) {
+                    sessionGroupsList = data.groups;
+                    if (sessionGroupsList.length === 0) {
+                        select.innerHTML = '<option value="">Nenhum grupo encontrado</option>';
+                        return;
+                    }
+
+                    select.innerHTML = '<option value="">-- Selecione um grupo (' + sessionGroupsList.length + ' encontrados) --</option>';
+                    sessionGroupsList.forEach(grp => {
+                        const opt = document.createElement('option');
+                        opt.value = grp.id;
+                        opt.textContent = `${grp.name || grp.subject || 'Sem nome'} (${grp.size || (grp.participants ? grp.participants.length : 0)} membros)`;
+                        select.appendChild(opt);
+                    });
+                    showToast(`${sessionGroupsList.length} grupos carregados!`);
+                } else {
+                    select.innerHTML = '<option value="">Erro ao carregar grupos</option>';
+                    showToast(data.error || 'Falha ao listar grupos', true);
+                }
+            } catch (err) {
+                select.innerHTML = '<option value="">Erro de conexão</option>';
+                showToast('Erro de conexão ao buscar grupos', true);
+            }
+        }
+
+        async function onGroupSelected() {
+            const groupJid = document.getElementById('groupSelect').value;
+            const listContainer = document.getElementById('groupMembersList');
+            const countSpan = document.getElementById('groupMembersCount');
+            const idSpan = document.getElementById('groupSelectedId');
+
+            if (!groupJid) {
+                countSpan.textContent = '0';
+                idSpan.textContent = '';
+                listContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">Selecione um grupo para listar os membros...</span>';
+                return;
+            }
+
+            idSpan.textContent = groupJid;
+            listContainer.innerHTML = '<div class="loader" style="margin: 1rem auto;"></div>';
+
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/groups/${encodeURIComponent(groupJid)}/participants`);
+                const data = await res.json();
+                printConsole(data);
+
+                if (data.success && Array.isArray(data.participants)) {
+                    const participants = data.participants;
+                    countSpan.textContent = participants.length;
+
+                    if (participants.length === 0) {
+                        listContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">Nenhum participante listado.</span>';
+                        return;
+                    }
+
+                    listContainer.innerHTML = '';
+                    participants.forEach(p => {
+                        const item = document.createElement('div');
+                        item.style = 'display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0.6rem; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.85rem;';
+                        
+                        const isAdm = p.isAdmin || p.admin === 'admin' || p.admin === 'superadmin';
+                        const badgeStyle = isAdm 
+                            ? 'background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid rgba(16,185,129,0.3); font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+                            : 'background: rgba(255,255,255,0.06); color: var(--text-muted); font-size: 0.7rem; padding: 2px 6px; border-radius: 4px;';
+                        
+                        const badgeText = p.isSuperAdmin || p.admin === 'superadmin' ? 'Criador / SuperAdmin' : (isAdm ? 'Admin' : 'Membro');
+
+                        item.innerHTML = `
+                            <span style="font-family: monospace; color: var(--text); cursor: pointer;" title="Clique para copiar número" onclick="document.getElementById('commonNumber').value='${p.phoneNumber || p.id.split('@')[0]}'; showToast('Número copiado para envio!')">
+                                📞 +${p.phoneNumber || p.id.split('@')[0]}
+                            </span>
+                            <span style="${badgeStyle}">${badgeText}</span>
+                        `;
+                        listContainer.appendChild(item);
+                    });
+                } else {
+                    listContainer.innerHTML = `<span style="color: var(--danger); font-size: 0.85rem;">${data.error || 'Erro ao carregar participantes'}</span>`;
+                }
+            } catch (err) {
+                listContainer.innerHTML = '<span style="color: var(--danger); font-size: 0.85rem;">Erro de conexão</span>';
+            }
+        }
+
+        async function addGroupMember() {
+            const groupJid = document.getElementById('groupSelect').value;
+            const number = document.getElementById('newParticipantNumber').value.trim();
+
+            if (!groupJid) return showToast('Selecione primeiro um grupo', true);
+            if (!number) return showToast('Informe o número para adicionar ao grupo', true);
+
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/groups/${encodeURIComponent(groupJid)}/participants`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        participants: [number],
+                        action: 'add'
+                    })
+                });
+                const data = await res.json();
+                printConsole(data);
+
+                if (data.success) {
+                    showToast('Participante adicionado com sucesso!');
+                    document.getElementById('newParticipantNumber').value = '';
+                    onGroupSelected();
+                } else {
+                    showToast(data.error || 'Falha ao adicionar participante', true);
+                }
+            } catch (err) {
+                showToast('Erro ao adicionar participante', true);
+            }
+        }
+
+        // ==========================================
+        // VALIDADOR DE NÚMEROS E FOTO DE PERFIL
+        // ==========================================
+
+        async function checkPhoneNumberProfile() {
+            const phone = document.getElementById('checkPhoneInput').value.trim();
+            if (!phone) return showToast('Informe o número a ser consultado', true);
+
+            const detailsDiv = document.getElementById('checkPhoneResultDetails');
+            const nameDisplay = document.getElementById('checkProfileNameDisplay');
+            const statusDisplay = document.getElementById('checkProfileStatusDisplay');
+            const picImg = document.getElementById('checkProfilePic');
+            const picPlaceholder = document.getElementById('checkProfilePicPlaceholder');
+
+            detailsDiv.textContent = 'Consultando rede do WhatsApp...';
+
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/profile/${encodeURIComponent(phone)}`);
+                const data = await res.json();
+                printConsole(data);
+
+                if (data.exists) {
+                    nameDisplay.textContent = `+${data.number || phone}`;
+                    statusDisplay.innerHTML = `<span style="color: #34d399; font-weight: 600;">✓ Registrado no WhatsApp</span>`;
+                    detailsDiv.innerHTML = `
+                        <strong>JID:</strong> <code>${data.jid}</code><br>
+                        <strong>Foto:</strong> ${data.profilePicUrl ? '<a href="' + data.profilePicUrl + '" target="_blank" style="color: var(--primary);">Abrir em alta resolução ↗</a>' : 'Sem foto pública ou bloqueada'}
+                    `;
+
+                    if (data.profilePicUrl) {
+                        picImg.src = data.profilePicUrl;
+                        picImg.style.display = 'block';
+                        picPlaceholder.style.display = 'none';
+                    } else {
+                        picImg.style.display = 'none';
+                        picPlaceholder.style.display = 'flex';
+                    }
+                    showToast('Número verificado: ativo!');
+                } else {
+                    nameDisplay.textContent = phone;
+                    statusDisplay.innerHTML = `<span style="color: var(--danger); font-weight: 600;">✗ Não cadastrado no WhatsApp</span>`;
+                    detailsDiv.textContent = 'Este número não foi localizado na rede do WhatsApp.';
+                    picImg.style.display = 'none';
+                    picPlaceholder.style.display = 'flex';
+                    showToast('Número inexistente no WhatsApp', true);
+                }
+            } catch (err) {
+                detailsDiv.textContent = 'Erro ao consultar perfil do número.';
+                showToast('Erro de conexão ao consultar número', true);
+            }
+        }
+
+        // ==========================================
+        // WEBHOOK
+        // ==========================================
+
+        async function loadWebhook() {
+            if (!currentSessionId) return;
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/webhook`);
+                const data = await res.json();
+                document.getElementById('webhookUrl').value = data.webhookUrl || '';
+            } catch (e) {}
+        }
+
+        async function saveWebhook(e) {
+            e.preventDefault();
+            const url = document.getElementById('webhookUrl').value;
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/webhook`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const data = await res.json();
+                showToast(data.success ? 'Webhook Salvo!' : data.error, !data.success);
+            } catch (e) {
+                showToast('Falha ao salvar webhook', true);
+            }
+        }
+
+        async function deleteWebhook() {
+            if (!confirm('Remover webhook desta sessão?')) return;
+            try {
+                await fetch(`${API_BASE}/${currentSessionId}/webhook`, { method: 'DELETE' });
+                document.getElementById('webhookUrl').value = '';
+                showToast('Webhook Removido!');
+            } catch (e) {
+                showToast('Erro ao remover', true);
+            }
+        }
+
+        // ==========================================
+        // CONSULTAS RÁPIDAS
+        // ==========================================
+
+        function printConsole(data) {
+            document.getElementById('consoleOutput').textContent = JSON.stringify(data, null, 2);
+        }
+
+        async function fetchData(endpoint) {
+            if (!currentSessionId) return;
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/${endpoint}`);
+                const data = await res.json();
+                printConsole(data);
+            } catch (e) {
+                printConsole({ error: 'Erro ao consultar' });
+            }
+        }
+
+        // ==========================================
+        // LABELS / ETIQUETAS
+        // ==========================================
+
+        async function loadLabels() {
+            if (!currentSessionId) return;
+            document.getElementById('labelsGrid').innerHTML = '<div class="loader"></div>';
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/labels`);
+                const data = await res.json();
+                document.getElementById('labelsOutput').textContent = JSON.stringify(data, null, 2);
+
+                if (!data.success || !data.labels || data.labels.length === 0) {
+                    document.getElementById('labelsGrid').innerHTML = 
+                        `<span style="color: var(--text-muted); font-size: 0.85rem;">${data.message || 'Nenhum label encontrado.'}</span>`;
+                    return;
+                }
+
+                const grid = document.getElementById('labelsGrid');
+                grid.innerHTML = '';
+                for (const label of data.labels) {
+                    const badge = document.createElement('div');
+                    badge.style = `
+                        padding: 0.4rem 0.9rem; border-radius: 50px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+                        border: 2px solid ${label.color !== undefined ? '#10B981' : 'var(--primary)'};
+                        color: #fff;
+                        background: rgba(16,185,129,0.15);
+                        transition: all 0.2s;
+                        display: inline-flex;
+                        align-items: center;
+                    `;
+                    badge.innerHTML = `<span>${label.name} (ID: ${label.id})</span> <span style="margin-left:8px; opacity:0.7;" title="Excluir Etiqueta">🗑️</span>`;
+                    badge.title = 'Clique para preencher o ID';
+                    badge.onclick = (e) => {
+                        if (e.target.innerText === '🗑️') {
+                            e.stopPropagation();
+                            deleteLabel(label.id, label.name);
+                            return;
+                        }
+                        document.getElementById('labelId').value = label.id;
+                        showToast(`Label "${label.name}" selecionado!`);
+                    };
+                    grid.appendChild(badge);
+                }
+            } catch (e) {
+                document.getElementById('labelsGrid').innerHTML = 
+                    `<span style="color: var(--danger);">Erro ao carregar labels</span>`;
+            }
+        }
+
+        async function createLabel() {
+            const name = document.getElementById('newLabelName').value.trim();
+            const color = parseInt(document.getElementById('newLabelColor').value) || 0;
+            if (!name) return showToast('Informe o nome da etiqueta', true);
+
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/labels/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, color })
+                });
+                const data = await res.json();
+                document.getElementById('labelsOutput').textContent = JSON.stringify(data, null, 2);
+                if (data.success) {
+                    showToast('Etiqueta criada com sucesso!');
+                    document.getElementById('newLabelName').value = '';
+                    setTimeout(loadLabels, 1000);
+                } else {
+                    showToast(data.error, true);
+                }
+            } catch (e) {
+                showToast('Erro ao criar etiqueta', true);
+            }
+        }
+
+        async function deleteLabel(labelId, labelName) {
+            if (!confirm(`Tem certeza que deseja apagar a etiqueta "${labelName || labelId}"?`)) return;
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/labels/${labelId}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                document.getElementById('labelsOutput').textContent = JSON.stringify(data, null, 2);
+                if (data.success) {
+                    showToast('Etiqueta apagada com sucesso!');
+                    setTimeout(loadLabels, 1000);
+                } else {
+                    showToast(data.error, true);
+                }
+            } catch (e) {
+                showToast('Erro ao apagar etiqueta', true);
+            }
+        }
+
+        async function applyLabel() {
+            const number = document.getElementById('labelNumber').value;
+            const labelId = document.getElementById('labelId').value;
+            if (!number || !labelId) return showToast('Preencha número e ID da etiqueta', true);
+
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/labels/chat/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ number, labelId })
+                });
+                const data = await res.json();
+                document.getElementById('labelsOutput').textContent = JSON.stringify(data, null, 2);
+                if (data.success) showToast('Etiqueta aplicada!');
+                else showToast(data.error, true);
+            } catch (e) {
+                showToast('Erro ao aplicar', true);
+            }
+        }
+
+        async function removeLabel() {
+            const number = document.getElementById('labelNumber').value;
+            const labelId = document.getElementById('labelId').value;
+            if (!number || !labelId) return showToast('Preencha número e ID da etiqueta', true);
+
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/labels/chat/remove`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ number, labelId })
+                });
+                const data = await res.json();
+                document.getElementById('labelsOutput').textContent = JSON.stringify(data, null, 2);
+                if (data.success) showToast('Etiqueta removida!');
+                else showToast(data.error, true);
+            } catch (e) {
+                showToast('Erro ao remover', true);
+            }
+        }
+
+        // ==========================================
+        // INICIALIZAÇÃO
+        // ==========================================
+
+        window.onload = () => {
+            const hash = window.location.hash.replace('#', '');
+            if (hash) {
+                openSession(hash);
+            } else {
+                goHome();
+            }
+        };
+    </script>
+</body>
+</html>
