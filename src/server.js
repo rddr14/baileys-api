@@ -22,6 +22,34 @@ app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // Roteamento
 app.use(express.static(path.join(__dirname, '../public')));
+
+// Middleware de Autenticação opcional por Secret Key / API Key
+app.use((req, res, next) => {
+    const requiredApiKey = process.env.API_KEY;
+    // Se API_KEY não estiver definida no .env, o acesso é livre
+    if (!requiredApiKey) {
+        return next();
+    }
+
+    // Permite carregamento de arquivos estáticos/dashboard
+    if (req.path === '/' || req.path.match(/\.(html|css|js|ico|png|jpg|jpeg|svg|woff2?)$/i)) {
+        return next();
+    }
+
+    const authHeader = req.headers['authorization'];
+    const bearerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const providedKey = req.headers['apikey'] || req.headers['x-api-key'] || bearerToken || req.query.apikey;
+
+    if (providedKey && providedKey === requiredApiKey) {
+        return next();
+    }
+
+    return res.status(401).json({
+        error: true,
+        message: 'Unauthorized: apikey inválida ou não fornecida no cabeçalho.'
+    });
+});
+
 app.use('/api', routes);
 
 // Camada de compatibilidade 100% com Evolution API v2 (atende rotas como /group/fetchAllGroups/..., /message/sendText/..., etc)

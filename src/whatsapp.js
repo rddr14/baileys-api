@@ -29,7 +29,14 @@ function saveWebhooks(data) {
 }
 
 function getWebhook(sessionId) {
-    return getWebhooks()[sessionId] || null;
+    const specific = getWebhooks()[sessionId];
+    if (specific) return specific;
+
+    const fallbackEnabled = String(process.env.WEBHOOK_FALLBACK_ENABLED || '').toLowerCase() === 'true';
+    if (fallbackEnabled && process.env.WEBHOOK_URL) {
+        return process.env.WEBHOOK_URL;
+    }
+    return null;
 }
 
 function setWebhook(sessionId, url) {
@@ -51,7 +58,11 @@ async function sendWebhook(sessionId, event, data) {
     const url = getWebhook(sessionId);
     if (!url) return;
     try {
-        await axios.post(url, { sessionId, event, data });
+        const headers = { 'Content-Type': 'application/json' };
+        if (process.env.API_KEY) {
+            headers['apikey'] = process.env.API_KEY;
+        }
+        await axios.post(url, { sessionId, event, data }, { headers });
         console.log(`[${sessionId}] Webhook disparado com sucesso (${event}) para ${url}`);
         console.log(`Payload enviado:`, JSON.stringify(data, null, 2));
     } catch (e) {

@@ -77,3 +77,4 @@ echo -e "Para ver o status do processo:   ${BLUE}pm2 status${NC}"
 echo -e "Para reiniciar o serviço:       ${BLUE}pm2 restart baileys-api${NC}"
 echo -e "Para parar o serviço:           ${BLUE}pm2 stop baileys-api${NC}"
 echo -e "====================================================\n"
+

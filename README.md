@@ -74,7 +74,9 @@ docker compose up -d --build
 | Variável | Padrão | Descrição |
 | :--- | :--- | :--- |
 | `PORT` | `3000` | Porta HTTP onde a API ficará acessível |
+| `WEBHOOK_FALLBACK_ENABLED` | `false` | Se `true`, usa a `WEBHOOK_URL` para sessões sem webhook específico |
 | `WEBHOOK_URL` | `http://localhost:8000/api/whatsapp/webhook` | URL global de fallback para disparo de webhooks |
+| `API_KEY` | *(vazio)* | Chave de segurança. Se preenchida, exige o header `apikey: SUA_CHAVE` nas chamadas |
 
 ---
 
