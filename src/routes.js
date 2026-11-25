@@ -47,6 +47,64 @@ function requireConnection(req, res, next) {
 }
 
 // ==========================================
+// 0. SSE HUB DE ATENDIMENTO EM TEMPO REAL
+// ==========================================
+
+const atendimentoSseClients = new Set();
+
+function broadcastAtendimentoSse(payload) {
+    const dataStr = `event: atendimento\ndata: ${JSON.stringify(payload)}\n\n`;
+    for (const clientRes of atendimentoSseClients) {
+        try {
+            clientRes.write(dataStr);
+        } catch (_) {
+            atendimentoSseClients.delete(clientRes);
+        }
+    }
+}
+
+router.get('/atendimento-events/stream', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    if (typeof res.flushHeaders === 'function') {
+        res.flushHeaders();
+    }
+
+    res.write(`event: connected\ndata: ${JSON.stringify({ ok: true, timestamp: Date.now() })}\n\n`);
+    atendimentoSseClients.add(res);
+
+    const heartbeat = setInterval(() => {
+        try {
+            res.write(`: heartbeat ${Date.now()}\n\n`);
+        } catch (_) {
+            clearInterval(heartbeat);
+            atendimentoSseClients.delete(res);
+        }
+    }, 25000);
+
+    req.on('close', () => {
+        clearInterval(heartbeat);
+        atendimentoSseClients.delete(res);
+    });
+});
+
+router.post('/atendimento-events/emit', (req, res) => {
+    const body = req.body || {};
+    const payload = {
+        event: body.event || 'updated',
+        atendimento_id: body.atendimento_id || null,
+        session: body.session || null,
+        phone: body.phone || null,
+        timestamp: body.timestamp || Date.now(),
+        payload: body.payload || {}
+    };
+    broadcastAtendimentoSse(payload);
+    res.json({ success: true, clients: atendimentoSseClients.size });
+});
+
+// ==========================================
 // 1. GERENCIAMENTO DE SESSÕES
 // ==========================================
 
@@ -122,6 +180,29 @@ router.delete('/:sessionId/webhook', (req, res) => {
     res.json({ success: true, message: 'Webhook removido com sucesso' });
 });
 
+router.get('/:sessionId/online-status', (req, res) => {
+    try {
+        res.json({ success: true, showOnline: whatsapp.getOnlineStatus(req.params.sessionId) });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.put('/:sessionId/online-status', async (req, res) => {
+    const { showOnline } = req.body;
+    if (typeof showOnline !== 'boolean') {
+        return res.status(400).json({ error: '"showOnline" deve ser true ou false.' });
+    }
+
+    try {
+        await whatsapp.setOnlineStatus(req.params.sessionId, showOnline);
+        res.json({ success: true, showOnline, message: 'Status online atualizado com sucesso.' });
+    } catch (error) {
+        console.error(`[${req.params.sessionId}] Falha ao atualizar status online:`, error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ==========================================
 // 3. ROTAS DE MENSAGENS E INTERAÇÕES
 // ==========================================
@@ -174,6 +255,23 @@ router.get('/:sessionId/profile/:phone', requireConnection, async (req, res) => 
             name = store.chats[jid].name || store.chats[jid].pushName;
         }
 
+        let pushName = contact?.notify || null;
+        if (!pushName && store?.messages?.[jid]) {
+            const msgs = store.messages[jid];
+            for (let i = msgs.length - 1; i >= 0; i--) {
+                if (!msgs[i].key?.fromMe && msgs[i].pushName) {
+                    pushName = msgs[i].pushName;
+                    break;
+                }
+            }
+        }
+        if (!pushName && store?.chats?.[jid]) {
+            pushName = store.chats[jid].pushName || null;
+        }
+        if (!pushName) {
+            pushName = whatsapp.findGlobalPushName(jid) || null;
+        }
+
         let userStatus = null;
         try {
             const statusObj = await sock.fetchStatus(jid);
@@ -187,6 +285,8 @@ router.get('/:sessionId/profile/:phone', requireConnection, async (req, res) => 
             jid: jid,
             number: cleanNumber,
             name: name || userStatus || null,
+            pushName: pushName || name || userStatus || null,
+            pushname: pushName || name || userStatus || null,
             status: userStatus || null,
             profilePicUrl,
             lid: check.lid || null
@@ -258,7 +358,11 @@ router.post('/:sessionId/messages/media', upload.single('file'), requireConnecti
         let buffer, mimetype, fileName;
 
         if (base64) {
-            buffer = Buffer.from(base64, 'base64');
+            const rawBase64 = String(base64);
+            const cleanBase64 = rawBase64.includes(';base64,') ? rawBase64.split(';base64,')[1] : rawBase64;
+            buffer = Buffer.from(cleanBase64, 'base64');
+            mimetype = req.body.mimetype || 'application/octet-stream';
+            fileName = req.body.fileName || req.body.filename || 'arquivo';
         } else {
             buffer = fs.readFileSync(file.path);
             mimetype = file.mimetype;
@@ -271,13 +375,16 @@ router.post('/:sessionId/messages/media', upload.single('file'), requireConnecti
 
         if (mediaType === 'image') {
             messagePayload.image = buffer;
+            if (mimetype && mimetype !== 'application/octet-stream') messagePayload.mimetype = mimetype;
             if (caption) messagePayload.caption = caption;
         } else if (mediaType === 'video') {
             messagePayload.video = buffer;
+            if (mimetype && mimetype !== 'application/octet-stream') messagePayload.mimetype = mimetype;
             if (caption) messagePayload.caption = caption;
         } else if (mediaType === 'audio') {
             messagePayload.audio = buffer;
-            if (ptt) messagePayload.ptt = true;
+            if (mimetype && mimetype !== 'application/octet-stream') messagePayload.mimetype = mimetype;
+            if (ptt === true || ptt === 'true' || ptt === '1' || ptt === 1) messagePayload.ptt = true;
         } else {
             messagePayload.document = buffer;
             if (mimetype) messagePayload.mimetype = mimetype;
@@ -294,15 +401,82 @@ router.post('/:sessionId/messages/media', upload.single('file'), requireConnecti
     }
 });
 
-// Envia mensagem com botões interativos (Quick Reply, URL ou Telefone)
-router.post('/:sessionId/messages/buttons', requireConnection, async (req, res) => {
+// ==========================================
+// CONFIGURAÇÕES DE PROTEÇÃO DE BOTÕES (PIX / 2FA)
+// ==========================================
+
+router.get('/:sessionId/button-settings', (req, res) => {
     try {
-        const { number, title, body, footer, buttons } = req.body;
+        res.json({ success: true, ...whatsapp.getButtonSettings(req.params.sessionId) });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.put('/:sessionId/button-settings', (req, res) => {
+    try {
+        const { mode, fallbackTimeoutMs } = req.body;
+        const updated = whatsapp.setButtonSettings(req.params.sessionId, { mode, fallbackTimeoutMs });
+        res.json({ success: true, ...updated, message: 'Configuração de proteção de botões salva com sucesso.' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * Helper centralizado para envio de textos/códigos de contingência (Pix e 2FA)
+ * Envia os códigos 'copy' em balões isolados para facilitar o "segurar e copiar" no celular.
+ */
+async function sendFallbackTextAndCodes(sock, jid, { title, body, footer, buttons = [], sendMainText = true }) {
+    const sentFallbackIds = [];
+
+    if (sendMainText) {
+        const parts = [];
+        if (title) parts.push(`*${title}*`);
+        if (body) parts.push(body);
+
+        // Lista links, telefones ou opções caso não sejam botões de cópia
+        const extraLines = [];
+        buttons.forEach((btn, idx) => {
+            const bType = btn.type || 'quick_reply';
+            if (bType === 'url' && btn.url) {
+                extraLines.push(`🔗 *${btn.text || 'Link'}:* ${btn.url}`);
+            } else if (bType === 'call' && btn.phone) {
+                extraLines.push(`📞 *${btn.text || 'Telefone'}:* ${btn.phone}`);
+            } else if (bType === 'quick_reply' && buttons.every(b => (b.type || 'quick_reply') !== 'copy')) {
+                extraLines.push(`• ${btn.text || `Opção ${idx + 1}`}`);
+            }
+        });
+
+        if (extraLines.length > 0) parts.push(extraLines.join('\n'));
+        if (footer) parts.push(`_${footer}_`);
+
+        const mainRes = await sock.sendMessage(jid, { text: parts.join('\n\n') });
+        if (mainRes?.key?.id) sentFallbackIds.push(mainRes.key.id);
+    }
+
+    // Dispara cada botão do tipo 'copy' (Pix ou 2FA) isolado em uma mensagem limpa
+    const copyButtons = buttons.filter(b => b.type === 'copy' && (b.code || b.text));
+    for (const copyBtn of copyButtons) {
+        const rawCode = String(copyBtn.code || copyBtn.text).trim();
+        await new Promise(r => setTimeout(r, 400));
+        const codeRes = await sock.sendMessage(jid, { text: rawCode });
+        if (codeRes?.key?.id) sentFallbackIds.push(codeRes.key.id);
+    }
+
+    return sentFallbackIds;
+}
+
+// Envia mensagem com botões interativos + Camada de Proteção Anti-Bloqueio (Pix / 2FA)
+async function handleSendButtons(req, res) {
+    try {
+        const sessionId = req.params.sessionId;
+        const { number, title, body, footer, buttons, protectionMode, fallbackTimeoutMs } = req.body;
         if (!number || !body) {
             return res.status(400).json({ error: 'Faltando "number" ou "body" (texto principal).' });
         }
 
-        const sock = whatsapp.getSocket(req.params.sessionId);
+        const sock = whatsapp.getSocket(sessionId);
         let jid;
         try {
             jid = await resolveJid(sock, number);
@@ -310,56 +484,76 @@ router.post('/:sessionId/messages/buttons', requireConnection, async (req, res) 
             return res.status(422).json({ success: false, error: e.message });
         }
 
-        // Formata os botões interativos (formato oficial moderno do WhatsApp)
-        const formattedButtons = [];
-        if (Array.isArray(buttons) && buttons.length > 0) {
-            buttons.forEach((btn, index) => {
-                const btnType = btn.type || 'quick_reply';
-                if (btnType === 'url') {
-                    formattedButtons.push({
-                        name: 'cta_url',
-                        buttonParamsJson: JSON.stringify({
-                            display_text: btn.text || 'Abrir Link',
-                            url: btn.url,
-                            merchant_url: btn.url
-                        })
-                    });
-                } else if (btnType === 'call') {
-                    formattedButtons.push({
-                        name: 'cta_call',
-                        buttonParamsJson: JSON.stringify({
-                            display_text: btn.text || 'Ligar',
-                            phone_number: btn.phone
-                        })
-                    });
-                } else if (btnType === 'copy') {
-                    formattedButtons.push({
-                        name: 'cta_copy',
-                        buttonParamsJson: JSON.stringify({
-                            display_text: btn.text || 'Copiar Código',
-                            copy_code: btn.code || btn.text
-                        })
-                    });
-                } else {
-                    // Resposta rápida padrão (quick_reply)
-                    formattedButtons.push({
-                        name: 'quick_reply',
-                        buttonParamsJson: JSON.stringify({
-                            display_text: btn.text || `Opção ${index + 1}`,
-                            id: btn.id || `btn_${index + 1}`
-                        })
-                    });
-                }
+        const sessionBtnConfig = whatsapp.getButtonSettings(sessionId);
+        const activeMode = protectionMode || sessionBtnConfig.mode || 'smart_fallback';
+        const activeTimeout = Number(fallbackTimeoutMs) || sessionBtnConfig.fallbackTimeoutMs || 12000;
+
+        const inputButtons = Array.isArray(buttons) && buttons.length > 0
+            ? buttons
+            : [
+                { type: 'quick_reply', text: 'Sim ✅', id: 'btn_sim' },
+                { type: 'quick_reply', text: 'Não ❌', id: 'btn_nao' }
+            ];
+
+        // MODO 1: Kill-Switch ativo (text_only) -> Nem tenta enviar botão interativo, envia direto em texto + código isolado
+        if (activeMode === 'text_only') {
+            const fallbackIds = await sendFallbackTextAndCodes(sock, jid, {
+                title,
+                body,
+                footer,
+                buttons: inputButtons,
+                sendMainText: true
             });
-        } else {
-            // Botões padrão de teste caso não envie nenhum
-            formattedButtons.push(
-                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'Sim ✅', id: 'btn_sim' }) },
-                { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: 'Não ❌', id: 'btn_nao' }) }
-            );
+
+            return res.json({
+                success: true,
+                modeUsed: 'text_only',
+                messageId: fallbackIds[0] || null,
+                fallbackMessageIds: fallbackIds,
+                resolvedJid: jid
+            });
         }
 
-        // Monta o payload do Interactive Message
+        // Formata os botões interativos (formato oficial moderno do WhatsApp)
+        const formattedButtons = inputButtons.map((btn, index) => {
+            const btnType = btn.type || 'quick_reply';
+            if (btnType === 'url') {
+                return {
+                    name: 'cta_url',
+                    buttonParamsJson: JSON.stringify({
+                        display_text: btn.text || 'Abrir Link',
+                        url: btn.url,
+                        merchant_url: btn.url
+                    })
+                };
+            } else if (btnType === 'call') {
+                return {
+                    name: 'cta_call',
+                    buttonParamsJson: JSON.stringify({
+                        display_text: btn.text || 'Ligar',
+                        phone_number: btn.phone
+                    })
+                };
+            } else if (btnType === 'copy') {
+                return {
+                    name: 'cta_copy',
+                    buttonParamsJson: JSON.stringify({
+                        display_text: btn.text || 'Copiar Código',
+                        id: btn.id || `copy_${index + 1}`,
+                        copy_code: btn.code || btn.text
+                    })
+                };
+            } else {
+                return {
+                    name: 'quick_reply',
+                    buttonParamsJson: JSON.stringify({
+                        display_text: btn.text || `Opção ${index + 1}`,
+                        id: btn.id || `btn_${index + 1}`
+                    })
+                };
+            }
+        });
+
         const interactiveMessage = {
             body: { text: body },
             footer: footer ? { text: footer } : undefined,
@@ -388,10 +582,75 @@ router.post('/:sessionId/messages/buttons', requireConnection, async (req, res) 
             { userJid: sock.user.id }
         );
 
-        await sock.relayMessage(jid, msg.message, { messageId: msg.key.id });
+        await sock.relayMessage(
+            jid,
+            msg.message,
+            {
+                messageId: msg.key.id,
+                additionalNodes: [
+                    {
+                        tag: 'biz',
+                        attrs: {},
+                        content: [
+                            {
+                                tag: 'interactive',
+                                attrs: { type: 'native_flow', v: '1' },
+                                content: [
+                                    {
+                                        tag: 'native_flow',
+                                        attrs: { v: '9', name: 'mixed' }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        );
+
+        // MODO 2: Dupla Garantia (dual) -> Envia o botão interativo e logo em seguida manda o código puro separado
+        if (activeMode === 'dual') {
+            setTimeout(async () => {
+                try {
+                    await sendFallbackTextAndCodes(sock, jid, {
+                        title,
+                        body,
+                        footer,
+                        buttons: inputButtons,
+                        sendMainText: false // O texto já foi no botão, envia apenas o código puro isolado
+                    });
+                } catch (err) {
+                    console.error(`[${sessionId}] Erro no envio secundário (dual):`, err.message);
+                }
+            }, 600);
+        }
+
+        // MODO 3: Fallback Inteligente (smart_fallback) -> Monitora se o 2º check chega no tempo limite
+        if (activeMode === 'smart_fallback') {
+            whatsapp.waitForDeliveryAck(sessionId, msg.key.id, activeTimeout).then(async (delivered) => {
+                if (!delivered) {
+                    console.warn(`[${sessionId}] ⚠️ Botão ${msg.key.id} para ${jid} não confirmou entrega (2 checks) em ${activeTimeout}ms. Disparando fallback em texto!`);
+                    try {
+                        await sendFallbackTextAndCodes(sock, jid, {
+                            title,
+                            body,
+                            footer,
+                            buttons: inputButtons,
+                            sendMainText: true
+                        });
+                    } catch (err) {
+                        console.error(`[${sessionId}] Falha ao enviar fallback automático:`, err.message);
+                    }
+                } else {
+                    console.log(`[${sessionId}] ✓ Botão ${msg.key.id} confirmado pelo aparelho de destino (2 checks).`);
+                }
+            });
+        }
 
         res.json({
             success: true,
+            modeUsed: activeMode,
+            fallbackTimeoutMs: activeMode === 'smart_fallback' ? activeTimeout : null,
             messageId: msg.key.id,
             resolvedJid: jid,
             buttonsCount: formattedButtons.length
@@ -400,6 +659,29 @@ router.post('/:sessionId/messages/buttons', requireConnection, async (req, res) 
         console.error('Erro ao enviar botões:', error);
         res.status(500).json({ error: 'Falha ao enviar botões.', detail: error.message });
     }
+}
+
+router.post('/:sessionId/messages/buttons', requireConnection, handleSendButtons);
+
+// Rota dedicada e simplificada para Pix Copia e Cola e códigos 2FA
+router.post('/:sessionId/messages/copy', requireConnection, async (req, res) => {
+    const { number, title, body, footer, buttonText, code, protectionMode, fallbackTimeoutMs } = req.body;
+    req.body = {
+        number,
+        title: title || '',
+        body: body || 'Utilize o botão abaixo para copiar o código:',
+        footer: footer || '',
+        protectionMode,
+        fallbackTimeoutMs,
+        buttons: [
+            {
+                type: 'copy',
+                text: buttonText || 'Copiar Código',
+                code: code
+            }
+        ]
+    };
+    return handleSendButtons(req, res);
 });
 
 router.post('/:sessionId/presence', requireConnection, async (req, res) => {
@@ -565,7 +847,13 @@ router.post('/:sessionId/messages/read', requireConnection, async (req, res) => 
 router.get('/:sessionId/messages/download-media/:messageId', requireConnection, async (req, res) => {
     try {
         const buffer = await whatsapp.downloadMedia(req.params.sessionId, req.params.messageId);
-        res.json({ success: true, base64: buffer.toString('base64') });
+        const meta = whatsapp.getMessageMetadata(req.params.sessionId, req.params.messageId);
+        res.json({
+            success: true,
+            base64: buffer.toString('base64'),
+            mimetype: meta.mimetype || 'application/octet-stream',
+            fileName: meta.fileName || null
+        });
     } catch (error) {
         res.status(404).json({ error: error.message });
     }
@@ -575,14 +863,217 @@ router.get('/:sessionId/messages/download-media/:messageId', requireConnection, 
 // 3. CONSULTAS DE LISTAS
 // ==========================================
 
+function extractLastMessagePreview(msg) {
+    if (!msg || !msg.message) return '';
+    let m = msg.message;
+    for (let i = 0; i < 4; i++) {
+        if (m.ephemeralMessage?.message) m = m.ephemeralMessage.message;
+        else if (m.viewOnceMessage?.message) m = m.viewOnceMessage.message;
+        else if (m.viewOnceMessageV2?.message) m = m.viewOnceMessageV2.message;
+        else if (m.viewOnceMessageV2Extension?.message) m = m.viewOnceMessageV2Extension.message;
+        else if (m.documentWithCaptionMessage?.message) m = m.documentWithCaptionMessage.message;
+        else break;
+    }
+
+    if (m.conversation) return m.conversation;
+    if (m.extendedTextMessage?.text) return m.extendedTextMessage.text;
+    if (m.imageMessage) return m.imageMessage.caption || '[Imagem]';
+    if (m.videoMessage) return m.videoMessage.caption || '[Vídeo]';
+    if (m.audioMessage) return '[Áudio]';
+    if (m.documentMessage) return m.documentMessage.caption || `[Documento] ${m.documentMessage.fileName || ''}`.trim();
+    if (m.stickerMessage) return '[Figurinha]';
+    if (m.locationMessage || m.liveLocationMessage) return '[Localização]';
+    if (m.contactMessage) return `[Contato] ${m.contactMessage.displayName || ''}`.trim();
+    return '';
+}
+
+function normalizeMessageTimestamp(rawTs, fallbackTs = 0) {
+    let ts = rawTs;
+    if (ts && typeof ts === 'object' && typeof ts.low === 'number') {
+        ts = ts.low;
+    }
+    ts = Number(ts) || Number(fallbackTs) || 0;
+    if (ts > 10000000000) {
+        ts = Math.floor(ts / 1000);
+    }
+    return ts;
+}
+
 router.get('/:sessionId/chats', requireConnection, (req, res) => {
     const store = whatsapp.getStore(req.params.sessionId);
-    res.json({ success: true, chats: Object.values(store.chats) });
+    const chats = Object.values(store.chats || {}).map((chat) => {
+        const jid = chat.id;
+        const msgs = store.messages?.[jid] || [];
+        const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+        const contact = store.contacts?.[jid] || null;
+        const lastMessageText = extractLastMessagePreview(lastMsg);
+        const ts = normalizeMessageTimestamp(
+            lastMsg?.messageTimestamp || chat.conversationTimestamp,
+            0
+        );
+        const pushname = chat.name
+            || chat.pushName
+            || contact?.name
+            || contact?.notify
+            || lastMsg?.pushName
+            || null;
+
+        return {
+            ...chat,
+            last_message: lastMessageText,
+            timestamp: ts,
+            from_me: Boolean(lastMsg?.key?.fromMe),
+            pushname
+        };
+    });
+    res.json({ success: true, chats });
+});
+
+router.post('/:sessionId/chats/mark-unread', requireConnection, async (req, res) => {
+    try {
+        const { number, chat } = req.body || {};
+        const target = chat || number;
+        if (!target) {
+            return res.status(400).json({ error: 'Faltando "number" ou "chat".' });
+        }
+        const sock = whatsapp.getSocket(req.params.sessionId);
+        let jid;
+        try {
+            jid = await resolveJid(sock, target);
+        } catch (_) {
+            const clean = String(target).replace(/@.*/g, '').replace(/[^0-9]/g, '');
+            jid = String(target).includes('@') ? String(target) : `${clean}@s.whatsapp.net`;
+        }
+        await sock.chatModify({ markRead: false }, jid);
+        res.json({ success: true, jid });
+    } catch (error) {
+        res.status(500).json({ error: 'Falha ao marcar chat como não lido.', detail: error.message });
+    }
 });
 
 router.get('/:sessionId/contacts', requireConnection, (req, res) => {
-    const store = whatsapp.getStore(req.params.sessionId);
-    res.json({ success: true, contacts: Object.values(store.contacts) });
+    try {
+        const store = whatsapp.getStore(req.params.sessionId);
+        const search = (req.query.search || req.query.query || '').trim().toLowerCase();
+        const number = (req.query.number || '').replace(/[^0-9]/g, '');
+        const name = (req.query.name || '').trim().toLowerCase();
+
+        const lidInfo = new Map();
+        for (const c of Object.values(store.contacts || {})) {
+            if (c?.id && c.id.endsWith('@lid')) {
+                lidInfo.set(c.id, c);
+            }
+        }
+
+        const uniqueContactsMap = new Map();
+        for (const c of Object.values(store.contacts || {})) {
+            if (c?.id && !c.id.endsWith('@g.us') && !c.id.endsWith('@lid')) {
+                const jid = c.id;
+                const contactNumber = jid.split('@')[0] || '';
+                const lidRecord = c.lid ? lidInfo.get(c.lid) : null;
+                const contactName = c.name || lidRecord?.name || c.notify || lidRecord?.notify || c.verifiedName || null;
+                let contactPushName = c.notify || lidRecord?.notify || null;
+                if (!contactPushName) {
+                    contactPushName = whatsapp.findGlobalPushName(jid) || contactName || null;
+                }
+                if (!uniqueContactsMap.has(jid)) {
+                    uniqueContactsMap.set(jid, {
+                        id: jid,
+                        number: contactNumber,
+                        name: contactName,
+                        pushName: contactPushName,
+                        pushname: contactPushName,
+                        verifiedName: c.verifiedName || null,
+                        lid: c.lid || null
+                    });
+                } else if (contactName && !uniqueContactsMap.get(jid).name) {
+                    uniqueContactsMap.get(jid).name = contactName;
+                    uniqueContactsMap.get(jid).pushName = contactPushName;
+                    uniqueContactsMap.get(jid).pushname = contactPushName;
+                }
+            }
+        }
+
+        for (const c of Object.values(store.chats || {})) {
+            if (c?.id && !c.id.endsWith('@g.us') && !c.id.endsWith('@lid')) {
+                const jid = c.id;
+                const contactNumber = jid.split('@')[0] || '';
+                const chatName = c.name || null;
+                const chatPushName = whatsapp.findGlobalPushName(jid) || chatName;
+                if (!uniqueContactsMap.has(jid)) {
+                    uniqueContactsMap.set(jid, {
+                        id: jid,
+                        number: contactNumber,
+                        name: chatName,
+                        pushName: chatPushName,
+                        pushname: chatPushName,
+                        verifiedName: null,
+                        lid: c.accountLid || null
+                    });
+                }
+            }
+        }
+
+        let contacts = Array.from(uniqueContactsMap.values());
+
+        const matchPhone = (contactNum, searchNum) => {
+            if (!contactNum || !searchNum) return false;
+            const cClean = String(contactNum).replace(/[^0-9]/g, '');
+            const sClean = String(searchNum).replace(/[^0-9]/g, '');
+            if (!cClean || !sClean) return false;
+            if (cClean === sClean) return true;
+            if (cClean.includes(sClean)) return true;
+            if (cClean.length >= 8 && sClean.length >= 8) {
+                return cClean.slice(-8) === sClean.slice(-8);
+            }
+            return false;
+        };
+
+        if (number) {
+            contacts = contacts.filter(c => matchPhone(c.number, number));
+        }
+
+        if (name) {
+            contacts = contacts.filter(c => 
+                (c.name && c.name.toLowerCase().includes(name)) || 
+                (c.pushName && c.pushName.toLowerCase().includes(name))
+            );
+        }
+
+        if (search) {
+            contacts = contacts.filter(c => 
+                matchPhone(c.number, search) ||
+                (c.name && c.name.toLowerCase().includes(search)) ||
+                (c.pushName && c.pushName.toLowerCase().includes(search))
+            );
+        }
+
+        res.json({ success: true, count: contacts.length, contacts });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Falha ao buscar contatos.', detail: error.message });
+    }
+});
+
+router.post('/:sessionId/contacts/update', requireConnection, (req, res) => {
+    try {
+        const { number, name, pushName } = req.body;
+        if (!number || (!name && !pushName)) {
+            return res.status(400).json({ success: false, error: 'Faltando number e name (ou pushName).' });
+        }
+        const updated = whatsapp.updateContact(req.params.sessionId, { number, name, pushName });
+        res.json({ success: true, contact: updated });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Falha ao atualizar contato.', detail: error.message });
+    }
+});
+
+router.post('/:sessionId/contacts/sync', requireConnection, async (req, res) => {
+    try {
+        const result = await whatsapp.resyncSessionContacts(req.params.sessionId);
+        res.json({ success: true, result });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Falha ao ressincronizar contatos.', detail: error.message });
+    }
 });
 
 router.get('/:sessionId/groups', requireConnection, async (req, res) => {
@@ -845,5 +1336,6 @@ router.post('/:sessionId/labels/message/remove', requireConnection, async (req, 
         res.status(500).json({ error: error.message || 'Falha ao remover etiqueta.' });
     }
 });
+
 
 module.exports = router;

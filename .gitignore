@@ -12,6 +12,7 @@ auth_info_baileys_*
 baileys_store.json
 labels_*.json
 webhooks.json
+session_settings.json
 
 # Arquivos de Upload
 uploads/*
@@ -27,3 +28,4 @@ Thumbs.db
 .idea/
 .vscode/
 
+*.bak*

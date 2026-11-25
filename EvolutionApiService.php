@@ -1269,6 +1269,34 @@ class EvolutionApiService implements WhatsappServiceInterface
             return [];
         }
     }
+
+    /**
+     * Consulta contatos por número ou nome
+     * Endpoint: /chat/findContacts/{instance}
+     *
+     * Exemplos de uso:
+     *   $api->findContacts(['query' => 'João']);
+     *   $api->findContacts(['where' => ['number' => '5511999999999']]);
+     *   $api->findContacts(['where' => ['name' => 'Maria']]);
+     */
+    public function findContacts(array $filters = []): array
+    {
+        $url = "{$this->baseUrl}/chat/findContacts/{$this->session->session}";
+
+        try {
+            $response = Http::withHeaders($this->headers)->post($url, $filters);
+
+            if ($response->failed()) {
+                Log::error("[EvolutionAPI] findContacts Falhou: " . $response->body());
+                return [];
+            }
+
+            return $response->json() ?? [];
+        } catch (Exception $e) {
+            Log::error("[EvolutionAPI] findContacts Exception: " . $e->getMessage());
+            return [];
+        }
+    }
     /**
      * Endpoint: /group/fetchAllGroups/{instance}?getParticipants=false
      * O JSON retornado usa "subject" como nome e "id" como JID.
@@ -1560,10 +1588,45 @@ public function fetchGroupMembers(string $groupJid): array
         return null;
     }
     
+    public function updateContact(string $phone, string $name, ?string $pushName = null): array
+    {
+        $payload = array_filter([
+            'number' => $this->formatPhone($phone),
+            'name' => $name,
+            'pushName' => $pushName,
+        ], fn ($v) => $v !== null && $v !== '');
+
+        return $this->httpPost('chat/updateContact', $payload);
+    }
+
+    public function syncContacts(): array
+    {
+        return $this->httpPost('chat/syncContacts', []);
+    }
+
+    public function sendButtons(string $phone, string $body, array $buttons, ?string $title = null, ?string $footer = null): array
+    {
+        $payload = [
+            'number' => $this->formatPhone($phone),
+            'body' => $body,
+            'buttons' => $buttons,
+        ];
+
+        if ($title) {
+            $payload['title'] = $title;
+        }
+
+        if ($footer) {
+            $payload['footer'] = $footer;
+        }
+
+        $resp = $this->httpPost('message/sendButtons', $payload);
+        if (($resp['status'] ?? null) === 'ERROR') {
+            return $this->sendMessage($phone, $body);
+        }
+
+        return $resp;
+    }
+
     public function sendTemplateMessage(string $phone, string $templateName, array $components = [], $languge = 'pt_BR'): array {return[];}
-    
-    
-    
-    
-    
 }

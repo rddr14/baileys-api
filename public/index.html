@@ -106,6 +106,7 @@
             cursor: pointer;
             transition: all 0.2s;
             text-decoration: none;
+            width: auto;
         }
 
         .btn-header:hover {
@@ -123,7 +124,6 @@
             background: var(--primary-hover);
         }
 
-        /* TELA DE SESSÕES (HOME) */
         #sessionsView {
             display: block;
         }
@@ -168,7 +168,7 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: 190px;
+            min-height: 200px;
         }
 
         .session-card:hover {
@@ -229,7 +229,6 @@
             gap: 0.25rem;
         }
 
-        /* STATUS BADGE */
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -273,7 +272,6 @@
             color: #94a3b8;
         }
 
-        /* CARD NOVA SESSÃO */
         .new-session-card {
             border: 2px dashed rgba(255, 255, 255, 0.15);
             background: rgba(255, 255, 255, 0.02);
@@ -282,7 +280,7 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            min-height: 190px;
+            min-height: 200px;
             border-radius: 16px;
             cursor: pointer;
             transition: all 0.2s;
@@ -315,7 +313,6 @@
             box-shadow: 0 0 16px var(--primary-glow);
         }
 
-        /* TELA DE DETALHE DA SESSÃO */
         #sessionDetailView {
             display: none;
         }
@@ -353,13 +350,13 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
+            width: auto;
         }
 
         .btn-back:hover {
             background: rgba(255, 255, 255, 0.15);
         }
 
-        /* SELETOR DE TIPO DE DISPARO (TABS/CHIPS) */
         .type-selector {
             display: flex;
             gap: 0.5rem;
@@ -373,13 +370,13 @@
 
         .type-btn {
             flex: 1;
-            min-width: 100px;
-            padding: 0.6rem 0.9rem;
+            min-width: 95px;
+            padding: 0.6rem 0.75rem;
             border-radius: 8px;
             background: transparent;
             color: var(--text-muted);
             border: none;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
@@ -387,7 +384,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0.4rem;
+            gap: 0.35rem;
         }
 
         .type-btn:hover {
@@ -399,6 +396,61 @@
             background: var(--primary);
             color: white;
             box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .preset-bar {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.15rem;
+            flex-wrap: wrap;
+        }
+
+        .preset-chip {
+            width: auto;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+            border-radius: 6px;
+            background: rgba(59, 130, 246, 0.12);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #93c5fd;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .preset-chip:hover {
+            background: rgba(59, 130, 246, 0.25);
+            color: #fff;
+        }
+
+        .dynamic-btn-row {
+            background: rgba(15, 23, 42, 0.45);
+            border: 1px solid var(--surface-border);
+            border-radius: 10px;
+            padding: 0.75rem;
+            margin-bottom: 0.65rem;
+        }
+
+        .dynamic-btn-top {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            align-items: center;
+        }
+
+        .btn-remove-row {
+            width: auto;
+            padding: 0.45rem 0.65rem;
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+            font-size: 0.8rem;
+            border-radius: 6px;
+        }
+
+        .btn-remove-row:hover {
+            background: var(--danger);
+            color: white;
         }
 
         .grid {
@@ -437,14 +489,14 @@
             font-weight: 500;
         }
 
-        input[type="text"], input[type="url"], textarea, select, input[type="file"] {
+        input[type="text"], input[type="url"], input[type="number"], textarea, select, input[type="file"] {
             width: 100%;
             padding: 0.75rem 1rem;
             background: rgba(15, 23, 42, 0.6);
             border: 1px solid var(--surface-border);
             border-radius: 8px;
             color: var(--text);
-            font-size: 0.95rem;
+            font-size: 0.92rem;
             outline: none;
             transition: border-color 0.2s, box-shadow 0.2s;
         }
@@ -471,6 +523,16 @@
             background: var(--primary-hover);
         }
 
+        button.secondary {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--surface-border);
+            color: var(--text);
+        }
+
+        button.secondary:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
         button.danger {
             background: transparent;
             border: 1px solid var(--danger);
@@ -487,7 +549,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 240px;
+            min-height: 220px;
             background: rgba(0, 0, 0, 0.2);
             border-radius: 12px;
             padding: 1.25rem;
@@ -543,11 +605,10 @@
             font-size: 0.8rem;
             color: #34d399;
             margin-top: 1rem;
-            max-height: 180px;
+            max-height: 210px;
             border: 1px solid rgba(255,255,255,0.05);
         }
 
-        /* MODAL NOVA SESSAO */
         .modal-overlay {
             position: fixed;
             inset: 0;
@@ -618,6 +679,7 @@
             </div>
             
             <div class="header-actions">
+                <a href="/docs" target="_blank" class="btn-header" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.4rem;">📖 API Docs (REST)</a>
                 <button class="btn-header" onclick="loadSessionsList()">🔄 Atualizar</button>
                 <button class="btn-header primary" onclick="openNewSessionModal()">➕ Nova Sessão</button>
             </div>
@@ -630,7 +692,7 @@
             <div class="section-header">
                 <div>
                     <h2>Sessões Cadastradas</h2>
-                    <p>Selecione uma sessão para gerenciar conexões, mensagens, etiquetas e webhook.</p>
+                    <p>Selecione uma sessão para gerenciar conexões, botões Pix/2FA, etiquetas e webhook.</p>
                 </div>
             </div>
 
@@ -643,7 +705,6 @@
         <!-- VIEW 2: DETALHES DA SESSÃO SELECIONADA     -->
         <!-- ========================================== -->
         <div id="sessionDetailView">
-            <!-- Barra superior da sessão ativa -->
             <div class="detail-topbar">
                 <div class="detail-session-info">
                     <button class="btn-back" onclick="goHome()">← Voltar às Sessões</button>
@@ -658,7 +719,7 @@
                         <div class="status-dot"></div>
                         <span id="statusText">Verificando...</span>
                     </div>
-                    <button class="btn-header" onclick="checkStatus()" style="width: auto;">🔄 Status</button>
+                    <button class="btn-header" onclick="checkStatus()">🔄 Status</button>
                 </div>
             </div>
 
@@ -686,17 +747,17 @@
                     <div class="card">
                         <h2>🚀 Disparar Mensagem</h2>
                         <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
-                            Selecione o tipo de mensagem abaixo para exibir os campos específicos:
+                            Selecione o tipo de mensagem abaixo para testar os disparos da API:
                         </p>
 
-                        <!-- Seletor de Tipo (Abas / Chips) -->
+                        <!-- Seletor de Tipo -->
                         <div class="type-selector">
                             <button type="button" class="type-btn active" id="tabBtn_text" onclick="switchMessageType('text')">💬 Texto</button>
+                            <button type="button" class="type-btn" id="tabBtn_buttons" onclick="switchMessageType('buttons')">🔘 Botões / Pix / 2FA</button>
                             <button type="button" class="type-btn" id="tabBtn_media" onclick="switchMessageType('media')">📎 Mídia</button>
-                            <button type="button" class="type-btn" id="tabBtn_buttons" onclick="switchMessageType('buttons')">🔘 Botões</button>
                             <button type="button" class="type-btn" id="tabBtn_poll" onclick="switchMessageType('poll')">📊 Enquete</button>
                             <button type="button" class="type-btn" id="tabBtn_contact" onclick="switchMessageType('contact')">👤 Contato</button>
-                            <button type="button" class="type-btn" id="tabBtn_location" onclick="switchMessageType('location')">📍 Localização</button>
+                            <button type="button" class="type-btn" id="tabBtn_location" onclick="switchMessageType('location')">📍 Local</button>
                         </div>
 
                         <!-- Campo comum: Número Destino -->
@@ -718,7 +779,51 @@
                             <button type="button" onclick="submitCurrentType('text')">Disparar Mensagem de Texto 🚀</button>
                         </div>
 
-                        <!-- 2. CAMPOS DE MÍDIA -->
+                        <!-- 2. CAMPOS DE BOTÕES INTERATIVOS (MELHORADO PARA PIX E 2FA) -->
+                        <div id="typeFields_buttons" style="display: none;">
+                            <label>Templates Rápidos de Teste</label>
+                            <div class="preset-bar">
+                                <button type="button" class="preset-chip" onclick="applyButtonPreset('pix')">💠 Pix Copia e Cola</button>
+                                <button type="button" class="preset-chip" onclick="applyButtonPreset('2fa')">🔐 Senha 2FA / OTP</button>
+                                <button type="button" class="preset-chip" onclick="applyButtonPreset('menu')">💬 Menu Atendimento</button>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Título / Cabeçalho (opcional)</label>
+                                <input type="text" id="btnTitle" placeholder="Ex: Pagamento via Pix ou Código de Segurança">
+                            </div>
+                            <div class="form-group">
+                                <label>Mensagem Principal (Body)</label>
+                                <textarea id="btnBody" rows="3" placeholder="Toque no botão abaixo para copiar seu código:"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Rodapé (opcional)</label>
+                                <input type="text" id="btnFooter" placeholder="Ex: Quark GPS • Expira em 5 minutos">
+                            </div>
+
+                            <div class="form-group">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                    <label style="margin-bottom: 0;">Botões da Mensagem</label>
+                                    <button type="button" class="secondary" style="width: auto; padding: 0.35rem 0.75rem; font-size: 0.78rem;" onclick="addDynamicButtonRow()">➕ Adicionar Botão</button>
+                                </div>
+                                <div id="dynamicButtonsContainer"></div>
+                            </div>
+
+                            <div class="form-group" style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.25); padding: 0.85rem; border-radius: 10px;">
+                                <label style="color: #34d399; font-weight: 600;">🛡️ Modo de Proteção neste Disparo</label>
+                                <select id="btnRequestProtectionMode">
+                                    <option value="">Usar padrão configurado na sessão</option>
+                                    <option value="smart_fallback">Fallback Inteligente (Envia texto se não der 2 checks)</option>
+                                    <option value="dual">Envio Duplo (Envia Botão + Código puro separado)</option>
+                                    <option value="text_only">Apenas Texto (Simular Kill-Switch ativo)</option>
+                                    <option value="button_only">Apenas Botão Nativo (Sem contingência)</option>
+                                </select>
+                            </div>
+
+                            <button type="button" onclick="submitCurrentType('buttons')">Disparar Botão Interativo 🔘</button>
+                        </div>
+
+                        <!-- 3. CAMPOS DE MÍDIA -->
                         <div id="typeFields_media" style="display: none;">
                             <div class="form-group">
                                 <label>Tipo de Mídia</label>
@@ -738,36 +843,6 @@
                                 <input type="text" id="mediaCaption" placeholder="Legenda da mídia...">
                             </div>
                             <button type="button" onclick="submitCurrentType('media')">Enviar Mídia 📎</button>
-                        </div>
-
-                        <!-- 3. CAMPOS DE BOTÕES INTERATIVOS -->
-                        <div id="typeFields_buttons" style="display: none;">
-                            <div class="form-group">
-                                <label>Título / Cabeçalho (opcional)</label>
-                                <input type="text" id="btnTitle" placeholder="Ex: Central de Atendimento">
-                            </div>
-                            <div class="form-group">
-                                <label>Mensagem Principal</label>
-                                <textarea id="btnBody" rows="3" placeholder="Como podemos te ajudar hoje?"></textarea>
-                            </div>
-                            <div class="form-group">
-                                <label>Rodapé (opcional)</label>
-                                <input type="text" id="btnFooter" placeholder="Ex: Quark GPS">
-                            </div>
-                            <div class="form-group">
-                                <label>Configuração dos Botões</label>
-                                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-                                    <input type="text" id="btnText1" placeholder="Texto Botão 1 (Resposta rápida)" value="Falar com Atendente 👤">
-                                </div>
-                                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-                                    <input type="text" id="btnText2" placeholder="Texto Botão 2 (Resposta rápida)" value="Ver Planos 📋">
-                                </div>
-                                <div style="display: flex; gap: 0.5rem;">
-                                    <input type="text" id="btnText3" placeholder="Texto Botão 3" value="Acessar Portal 🌐">
-                                    <input type="url" id="btnUrl3" placeholder="https://novo.quarkgps.com (Link URL)">
-                                </div>
-                            </div>
-                            <button type="button" onclick="submitCurrentType('buttons')">Enviar Botões Interativos 🔘</button>
                         </div>
 
                         <!-- 4. CAMPOS DE ENQUETE INTERATIVA -->
@@ -834,6 +909,40 @@
 
                 <!-- COLUNA 2 -->
                 <div class="column">
+                    <!-- NOVO CARD: PROTEÇÃO ANTI-BLOQUEIO DE BOTÕES (PIX / 2FA) -->
+                    <div class="card" style="margin-bottom: 1.5rem; border-color: rgba(16, 185, 129, 0.3);">
+                        <h2>🛡️ Proteção de Botões (Pix & 2FA)</h2>
+                        <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.85rem;">
+                            Define como a sessão reage caso o WhatsApp aplique bloqueio silencioso em botões interativos (<code>cta_copy</code>).
+                        </p>
+                        <div class="form-group">
+                            <label>Modo Padrão da Sessão</label>
+                            <select id="sessionButtonMode">
+                                <option value="smart_fallback">⚡ Fallback Inteligente (Monitora 2º Check)</option>
+                                <option value="dual">📋 Dupla Garantia (Botão + Código Isolado)</option>
+                                <option value="text_only">🚨 Kill-Switch: Apenas Texto + Código Isolado</option>
+                                <option value="button_only">🔘 Apenas Botão Nativo (Sem Fallback)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Tempo limite para 2º Check no Fallback Inteligente (ms)</label>
+                            <input type="number" id="sessionFallbackTimeout" value="12000" min="3000" max="60000" step="1000">
+                        </div>
+                        <button type="button" onclick="saveButtonProtectionSettings()">Salvar Proteção da Sessão 🛡️</button>
+                    </div>
+
+                    <!-- Configuração de status online -->
+                    <div class="card" style="margin-bottom: 1.5rem;">
+                        <h2>👁️ Status online</h2>
+                        <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.85rem;">
+                            Por padrão, esta sessão não aparece como online no WhatsApp.
+                        </p>
+                        <label style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1rem; cursor: pointer;">
+                            <input type="checkbox" id="showOnlineStatus" style="width: auto;">
+                            Aparecer como online
+                        </label>
+                        <button type="button" onclick="saveOnlineStatus()">Salvar preferência</button>
+                    </div>
 
                     <!-- Configuração de Webhook -->
                     <div class="card" style="margin-bottom: 1.5rem;">
@@ -852,9 +961,9 @@
                         </div>
                     </div>
 
-                    <!-- Consultas Rápidas -->
+                    <!-- Consultas Rápidas e Console -->
                     <div class="card">
-                        <h2>🔍 Consultas Rápidas</h2>
+                        <h2>🔍 Consultas Rápidas & Log de Resposta</h2>
                         <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
                             <button style="width: auto; padding: 0.45rem 0.85rem; font-size: 0.8rem;" onclick="fetchData('chats')">Chats</button>
                             <button style="width: auto; padding: 0.45rem 0.85rem; font-size: 0.8rem;" onclick="fetchData('contacts')">Contatos</button>
@@ -873,7 +982,6 @@
                 </p>
 
                 <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start;">
-                    <!-- Labels existentes -->
                     <div style="flex: 1.2; min-width: 240px;">
                         <label>Etiquetas da Conta</label>
                         <div style="margin-top: 0.5rem;">
@@ -884,7 +992,6 @@
                         </div>
                     </div>
 
-                    <!-- Criar Nova Etiqueta -->
                     <div style="flex: 1; min-width: 220px;">
                         <label>Criar Nova Etiqueta</label>
                         <div class="form-group" style="margin-top: 0.5rem;">
@@ -905,7 +1012,6 @@
                         <button onclick="createLabel()">Criar Etiqueta ➕</button>
                     </div>
 
-                    <!-- Aplicar etiqueta em chat -->
                     <div style="flex: 1; min-width: 220px;">
                         <label>Aplicar ao Chat</label>
                         <div class="form-group" style="margin-top: 0.5rem;">
@@ -920,7 +1026,6 @@
                         </div>
                     </div>
 
-                    <!-- Saída das etiquetas -->
                     <div style="flex: 1.5; min-width: 240px;">
                         <label>Saída</label>
                         <pre id="labelsOutput" style="margin-top: 0.5rem;">// Resposta...</pre>
@@ -936,7 +1041,6 @@
                 </p>
 
                 <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                    <!-- Seletor de Grupo -->
                     <div style="flex: 1.2; min-width: 280px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                             <label style="margin-bottom: 0;">Selecione o Grupo</label>
@@ -948,7 +1052,6 @@
                             </select>
                         </div>
                         
-                        <!-- Ação: Adicionar Participante -->
                         <div style="background: rgba(15, 23, 42, 0.4); padding: 1rem; border-radius: 8px; border: 1px solid var(--surface-border); margin-top: 1rem;">
                             <label style="font-size: 0.85rem;">Adicionar Participante ao Grupo</label>
                             <div style="display: flex; gap: 0.5rem; margin-top: 0.4rem;">
@@ -958,7 +1061,6 @@
                         </div>
                     </div>
 
-                    <!-- Lista de Membros do Grupo -->
                     <div style="flex: 1.8; min-width: 320px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                             <label style="margin-bottom: 0;">Participantes do Grupo (<span id="groupMembersCount">0</span>)</label>
@@ -1031,6 +1133,108 @@
         let statusPollInterval = null;
 
         // ==========================================
+        // CONSTRUTOR DINÂMICO DE BOTÕES & PRESETS
+        // ==========================================
+
+        function renderButtonRows(buttonsArray) {
+            const container = document.getElementById('dynamicButtonsContainer');
+            container.innerHTML = '';
+            buttonsArray.forEach((btn, idx) => {
+                appendButtonRowDOM(btn.type || 'copy', btn.text || '', btn.value || '');
+            });
+        }
+
+        function appendButtonRowDOM(type = 'copy', text = 'Copiar Código', value = '') {
+            const container = document.getElementById('dynamicButtonsContainer');
+            if (container.children.length >= 4) {
+                return showToast('Máximo de 4 botões por mensagem', true);
+            }
+
+            const row = document.createElement('div');
+            row.className = 'dynamic-btn-row';
+            row.innerHTML = `
+                <div class="dynamic-btn-top">
+                    <select class="dyn-btn-type" onchange="onDynamicBtnTypeChange(this)" style="flex: 1;">
+                        <option value="copy" ${type === 'copy' ? 'selected' : ''}>📋 Copiar Código (Pix / 2FA)</option>
+                        <option value="quick_reply" ${type === 'quick_reply' ? 'selected' : ''}>💬 Resposta Rápida</option>
+                        <option value="url" ${type === 'url' ? 'selected' : ''}>🌐 Abrir URL</option>
+                        <option value="call" ${type === 'call' ? 'selected' : ''}>📞 Ligar</option>
+                    </select>
+                    <input type="text" class="dyn-btn-text" placeholder="Rótulo do botão" value="${text}" style="flex: 1.2;">
+                    <button type="button" class="btn-remove-row" onclick="this.closest('.dynamic-btn-row').remove()" title="Remover botão">✕</button>
+                </div>
+                <div class="dyn-btn-value-wrap" style="display: ${type === 'quick_reply' ? 'none' : 'block'};">
+                    <input type="text" class="dyn-btn-value" placeholder="${getPlaceholderForBtnType(type)}" value="${value}">
+                </div>
+            `;
+            container.appendChild(row);
+        }
+
+        function getPlaceholderForBtnType(type) {
+            if (type === 'copy') return 'Código a ser copiado (Chave Pix Copia e Cola ou Senha 2FA)';
+            if (type === 'url') return 'https://seusite.com.br';
+            if (type === 'call') return '5561999999999';
+            return 'ID opcional da resposta rápida';
+        }
+
+        function onDynamicBtnTypeChange(selectEl) {
+            const row = selectEl.closest('.dynamic-btn-row');
+            const wrap = row.querySelector('.dyn-btn-value-wrap');
+            const input = row.querySelector('.dyn-btn-value');
+            const type = selectEl.value;
+
+            if (type === 'quick_reply') {
+                wrap.style.display = 'none';
+            } else {
+                wrap.style.display = 'block';
+                input.placeholder = getPlaceholderForBtnType(type);
+            }
+        }
+
+        function addDynamicButtonRow() {
+            appendButtonRowDOM('copy', 'Copiar Código', '');
+        }
+
+        function applyButtonPreset(preset) {
+            if (preset === 'pix') {
+                document.getElementById('btnTitle').value = 'Fatura em Aberto • Pix';
+                document.getElementById('btnBody').value = 'Olá! Para realizar o pagamento instantâneo, toque no botão abaixo para copiar o código Pix Copia e Cola e cole no aplicativo do seu banco:';
+                document.getElementById('btnFooter').value = 'Quark GPS • Liberação imediata';
+                renderButtonRows([
+                    {
+                        type: 'copy',
+                        text: 'Copiar Pix Copia e Cola',
+                        value: '00020126580014br.gov.bcb.pix0136123e4567-e12b-12d1-a456-426655440000520400005303986540599.905802BR5913QUARK SISTEMA6008BRASILIA62070503***6304ABCD'
+                    }
+                ]);
+                showToast('Template Pix Copia e Cola carregado!');
+            } else if (preset === '2fa') {
+                const randomPin = Math.floor(100000 + Math.random() * 900000);
+                document.getElementById('btnTitle').value = 'Código de Verificação (2FA)';
+                document.getElementById('btnBody').value = `Seu código de acesso descartável é *${randomPin}*.\n\nNão compartilhe este código com ninguém. Toque abaixo para copiar:`;
+                document.getElementById('btnFooter').value = 'Válido por 5 minutos';
+                renderButtonRows([
+                    {
+                        type: 'copy',
+                        text: 'Copiar Código de Acesso',
+                        value: String(randomPin)
+                    }
+                ]);
+                showToast('Template Senha 2FA carregado!');
+            } else if (preset === 'menu') {
+                document.getElementById('btnTitle').value = 'Central de Atendimento';
+                document.getElementById('btnBody').value = 'Como podemos ajudar você hoje? Selecione uma das opções abaixo:';
+                document.getElementById('btnFooter').value = 'Quark GPS';
+                renderButtonRows([
+                    { type: 'quick_reply', text: 'Falar com Suporte 👤', value: 'suporte' },
+                    { type: 'quick_reply', text: '2ª Via de Boleto 📄', value: 'boleto' },
+                    { type: 'url', text: 'Acessar Painel 🌐', value: 'https://novo.quarkgps.com' }
+                ]);
+                showToast('Template Menu carregado!');
+            }
+        }
+
+        // ==========================================
         // ROTEAMENTO DE TELAS
         // ==========================================
 
@@ -1050,13 +1254,18 @@
             document.getElementById('sessionDetailView').style.display = 'block';
             document.getElementById('activeSessionTitle').textContent = sessionId;
 
-            // Limpa saídas antigas
             document.getElementById('consoleOutput').textContent = '// Resposta aparecerá aqui...';
             document.getElementById('labelsOutput').textContent = '// Resposta...';
             document.getElementById('labelsGrid').innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">Clique em "Carregar Etiquetas"...</span>';
 
+            if (document.getElementById('dynamicButtonsContainer').children.length === 0) {
+                applyButtonPreset('pix');
+            }
+
             checkStatus();
             loadWebhook();
+            loadOnlineStatus();
+            loadButtonProtectionSettings();
 
             if (statusPollInterval) clearInterval(statusPollInterval);
             statusPollInterval = setInterval(checkStatus, 4000);
@@ -1085,7 +1294,13 @@
 
                 container.innerHTML = '';
 
-                // Renderiza cada sessão cadastrada
+                const modeLabels = {
+                    smart_fallback: '⚡ Fallback 2 Checks',
+                    dual: '📋 Envio Duplo',
+                    text_only: '🚨 Kill-Switch (Texto)',
+                    button_only: '🔘 Apenas Botão'
+                };
+
                 sessions.forEach(sess => {
                     const card = document.createElement('div');
                     card.className = 'session-card';
@@ -1118,6 +1333,10 @@
                                     <strong>${sess.phone || 'Sem número'}</strong>
                                 </div>
                                 <div class="session-info-item">
+                                    <span>🛡️ Botões:</span>
+                                    <strong>${modeLabels[sess.buttonMode] || '⚡ Fallback 2 Checks'}</strong>
+                                </div>
+                                <div class="session-info-item">
                                     <span>🔗 Webhook:</span>
                                     <span style="max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                         ${sess.webhookUrl ? 'Configurado' : 'Não definido'}
@@ -1134,7 +1353,6 @@
                     container.appendChild(card);
                 });
 
-                // Card para adicionar nova sessão
                 const addCard = document.createElement('div');
                 addCard.className = 'new-session-card';
                 addCard.onclick = openNewSessionModal;
@@ -1269,14 +1487,49 @@
         }
 
         // ==========================================
-        // MENSAGENS POR TIPO (TEXTO, MÍDIA, BOTÕES)
+        // CONFIGURAÇÕES DE PROTEÇÃO DE BOTÕES
         // ==========================================
 
-        let activeMessageType = 'text';
+        async function loadButtonProtectionSettings() {
+            if (!currentSessionId) return;
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/button-settings`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.mode) document.getElementById('sessionButtonMode').value = data.mode;
+                if (data.fallbackTimeoutMs) document.getElementById('sessionFallbackTimeout').value = data.fallbackTimeoutMs;
+            } catch (e) {}
+        }
+
+        async function saveButtonProtectionSettings() {
+            if (!currentSessionId) return;
+            const mode = document.getElementById('sessionButtonMode').value;
+            const fallbackTimeoutMs = parseInt(document.getElementById('sessionFallbackTimeout').value, 10) || 12000;
+
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/button-settings`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode, fallbackTimeoutMs })
+                });
+                const data = await res.json();
+                printConsole(data);
+                if (data.success) {
+                    showToast('Proteção de botões atualizada!');
+                } else {
+                    showToast(data.error || 'Falha ao salvar proteção', true);
+                }
+            } catch (e) {
+                showToast('Erro ao salvar configuração de proteção', true);
+            }
+        }
+
+        // ==========================================
+        // DISPARO DE MENSAGENS POR TIPO
+        // ==========================================
 
         function switchMessageType(type) {
-            activeMessageType = type;
-            const types = ['text', 'media', 'buttons', 'poll', 'contact', 'location'];
+            const types = ['text', 'buttons', 'media', 'poll', 'contact', 'location'];
             types.forEach(t => {
                 const btn = document.getElementById(`tabBtn_${t}`);
                 const panel = document.getElementById(`typeFields_${t}`);
@@ -1319,6 +1572,56 @@
                     showToast('Erro de conexão ao enviar', true);
                 }
 
+            } else if (type === 'buttons') {
+                const title = document.getElementById('btnTitle').value.trim();
+                const body = document.getElementById('btnBody').value.trim();
+                const footer = document.getElementById('btnFooter').value.trim();
+                const protectionMode = document.getElementById('btnRequestProtectionMode').value || undefined;
+
+                if (!body) return showToast('Preencha a mensagem principal (Body)', true);
+
+                const rows = document.querySelectorAll('#dynamicButtonsContainer .dynamic-btn-row');
+                if (rows.length === 0) return showToast('Adicione pelo menos 1 botão', true);
+
+                const buttons = [];
+                for (let i = 0; i < rows.length; i++) {
+                    const bType = rows[i].querySelector('.dyn-btn-type').value;
+                    const bText = rows[i].querySelector('.dyn-btn-text').value.trim();
+                    const bVal = rows[i].querySelector('.dyn-btn-value').value.trim();
+
+                    if (!bText) return showToast(`Preencha o texto do botão ${i + 1}`, true);
+
+                    const btnObj = { type: bType, text: bText, id: `btn_${i + 1}` };
+                    if (bType === 'copy') {
+                        if (!bVal) return showToast(`Informe o código Pix ou senha 2FA no botão ${i + 1}`, true);
+                        btnObj.code = bVal;
+                    } else if (bType === 'url') {
+                        if (!bVal) return showToast(`Informe a URL no botão ${i + 1}`, true);
+                        btnObj.url = bVal;
+                    } else if (bType === 'call') {
+                        if (!bVal) return showToast(`Informe o telefone no botão ${i + 1}`, true);
+                        btnObj.phone = bVal;
+                    }
+                    buttons.push(btnObj);
+                }
+
+                try {
+                    const res = await fetch(`${API_BASE}/${currentSessionId}/messages/buttons`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ number, title, body, footer, buttons, protectionMode })
+                    });
+                    const data = await res.json();
+                    printConsole(data);
+                    if (data.success) {
+                        showToast(`Enviado (${data.modeUsed || 'padrão'})!`);
+                    } else {
+                        showToast(data.error || 'Falha ao enviar botões', true);
+                    }
+                } catch (err) {
+                    showToast('Erro de conexão ao enviar botões', true);
+                }
+
             } else if (type === 'media') {
                 const mediaType = document.getElementById('mediaType').value;
                 const fileInput = document.getElementById('mediaFile');
@@ -1349,45 +1652,6 @@
                     }
                 } catch (e) {
                     showToast('Erro ao enviar mídia', true);
-                }
-
-            } else if (type === 'buttons') {
-                const title = document.getElementById('btnTitle').value.trim();
-                const body = document.getElementById('btnBody').value.trim();
-                const footer = document.getElementById('btnFooter').value.trim();
-                const text1 = document.getElementById('btnText1').value.trim();
-                const text2 = document.getElementById('btnText2').value.trim();
-                const text3 = document.getElementById('btnText3').value.trim();
-                const url3 = document.getElementById('btnUrl3').value.trim();
-
-                if (!body) return showToast('Preencha a mensagem principal dos botões', true);
-
-                const buttons = [];
-                if (text1) buttons.push({ text: text1, id: 'btn_1' });
-                if (text2) buttons.push({ text: text2, id: 'btn_2' });
-                if (text3) {
-                    if (url3) {
-                        buttons.push({ text: text3, type: 'url', url: url3 });
-                    } else {
-                        buttons.push({ text: text3, id: 'btn_3' });
-                    }
-                }
-
-                try {
-                    const res = await fetch(`${API_BASE}/${currentSessionId}/messages/buttons`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ number, title, body, footer, buttons })
-                    });
-                    const data = await res.json();
-                    printConsole(data);
-                    if (data.success) {
-                        showToast('Botões disparados com sucesso!');
-                    } else {
-                        showToast(data.error || 'Falha ao enviar botões', true);
-                    }
-                } catch (err) {
-                    showToast('Erro de conexão ao enviar botões', true);
                 }
 
             } else if (type === 'poll') {
@@ -1552,7 +1816,7 @@
                         const badgeText = p.isSuperAdmin || p.admin === 'superadmin' ? 'Criador / SuperAdmin' : (isAdm ? 'Admin' : 'Membro');
 
                         item.innerHTML = `
-                            <span style="font-family: monospace; color: var(--text); cursor: pointer;" title="Clique para copiar número" onclick="document.getElementById('commonNumber').value='${p.phoneNumber || p.id.split('@')[0]}'; showToast('Número copiado para envio!')">
+                            <span style="font-family: monospace; color: var(--text); cursor: pointer;" title="Clique para usar este número no disparo" onclick="document.getElementById('commonNumber').value='${p.phoneNumber || p.id.split('@')[0]}'; showToast('Número preenchido no campo de destino!')">
                                 📞 +${p.phoneNumber || p.id.split('@')[0]}
                             </span>
                             <span style="${badgeStyle}">${badgeText}</span>
@@ -1620,7 +1884,7 @@
                 printConsole(data);
 
                 if (data.exists) {
-                    nameDisplay.textContent = `+${data.number || phone}`;
+                    nameDisplay.textContent = data.name ? `${data.name} (+${data.number})` : `+${data.number || phone}`;
                     statusDisplay.innerHTML = `<span style="color: #34d399; font-weight: 600;">✓ Registrado no WhatsApp</span>`;
                     detailsDiv.innerHTML = `
                         <strong>JID:</strong> <code>${data.jid}</code><br>
@@ -1651,8 +1915,34 @@
         }
 
         // ==========================================
-        // WEBHOOK
+        // STATUS ONLINE & WEBHOOK
         // ==========================================
+
+        async function loadOnlineStatus() {
+            if (!currentSessionId) return;
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/online-status`);
+                const data = await res.json();
+                if (!res.ok) return;
+                document.getElementById('showOnlineStatus').checked = data.showOnline === true;
+            } catch (e) {}
+        }
+
+        async function saveOnlineStatus() {
+            const showOnline = document.getElementById('showOnlineStatus').checked;
+            try {
+                const res = await fetch(`${API_BASE}/${currentSessionId}/online-status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ showOnline })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Falha ao salvar preferência');
+                showToast(showOnline ? 'Você aparecerá como online' : 'Status online ocultado');
+            } catch (e) {
+                showToast(e.message || 'Falha ao salvar preferência de status online', true);
+            }
+        }
 
         async function loadWebhook() {
             if (!currentSessionId) return;
@@ -1691,7 +1981,7 @@
         }
 
         // ==========================================
-        // CONSULTAS RÁPIDAS
+        // CONSULTAS RÁPIDAS & LABELS
         // ==========================================
 
         function printConsole(data) {
@@ -1708,10 +1998,6 @@
                 printConsole({ error: 'Erro ao consultar' });
             }
         }
-
-        // ==========================================
-        // LABELS / ETIQUETAS
-        // ==========================================
 
         async function loadLabels() {
             if (!currentSessionId) return;
@@ -1733,7 +2019,7 @@
                     const badge = document.createElement('div');
                     badge.style = `
                         padding: 0.4rem 0.9rem; border-radius: 50px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
-                        border: 2px solid ${label.color !== undefined ? '#10B981' : 'var(--primary)'};
+                        border: 2px solid #10B981;
                         color: #fff;
                         background: rgba(16,185,129,0.15);
                         transition: all 0.2s;
@@ -1741,7 +2027,6 @@
                         align-items: center;
                     `;
                     badge.innerHTML = `<span>${label.name} (ID: ${label.id})</span> <span style="margin-left:8px; opacity:0.7;" title="Excluir Etiqueta">🗑️</span>`;
-                    badge.title = 'Clique para preencher o ID';
                     badge.onclick = (e) => {
                         if (e.target.innerText === '🗑️') {
                             e.stopPropagation();
@@ -1843,11 +2128,8 @@
             }
         }
 
-        // ==========================================
-        // INICIALIZAÇÃO
-        // ==========================================
-
         window.onload = () => {
+            applyButtonPreset('pix');
             const hash = window.location.hash.replace('#', '');
             if (hash) {
                 openSession(hash);
