@@ -105,8 +105,42 @@ router.post('/atendimento-events/emit', (req, res) => {
 });
 
 // ==========================================
-// 1. GERENCIAMENTO DE SESSÕES
+// 1. GERENCIAMENTO DE SESSÕES E DIRETÓRIO GLOBAL
 // ==========================================
+
+router.post('/directory/sync-crm', (req, res) => {
+    try {
+        const records = Array.isArray(req.body?.records) ? req.body.records : [];
+        const synced = whatsapp.globalDirectory.bulkSyncCrm(records);
+        res.json({
+            success: true,
+            synced,
+            stats: whatsapp.globalDirectory.getStats()
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.get('/directory/stats', (req, res) => {
+    try {
+        res.json({
+            success: true,
+            stats: whatsapp.globalDirectory.getStats()
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+router.get('/directory/resolve/:query', (req, res) => {
+    try {
+        const identity = whatsapp.globalDirectory.resolveIdentity(req.params.query);
+        res.json({ success: true, identity });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 
 // Lista todas as sessões ativas no servidor
 router.get('/sessions', (req, res) => {
@@ -241,6 +275,10 @@ router.get('/:sessionId/profile/:phone', requireConnection, async (req, res) => 
         }
 
         const jid = check.jid;
+        if (check.lid) {
+            whatsapp.globalDirectory.recordLidMapping(check.lid, jid);
+        }
+
         let profilePicUrl = null;
         try {
             profilePicUrl = await sock.profilePictureUrl(jid, 'image');
@@ -280,16 +318,23 @@ router.get('/:sessionId/profile/:phone', requireConnection, async (req, res) => 
             }
         } catch (_) {}
 
+        const dir = whatsapp.globalDirectory.resolveIdentity(jid)
+            || whatsapp.globalDirectory.resolveIdentity(cleanNumber);
+
         res.json({
             exists: true,
             jid: jid,
             number: cleanNumber,
-            name: name || userStatus || null,
-            pushName: pushName || name || userStatus || null,
-            pushname: pushName || name || userStatus || null,
+            name: name || dir?.name || pushName || null,
+            pushName: pushName || dir?.pushName || name || null,
+            pushname: pushName || dir?.pushName || name || null,
+            crmName: dir?.crmName || null,
+            crmContext: dir?.crmContext || null,
+            verifiedName: contact?.verifiedName || dir?.verifiedName || null,
             status: userStatus || null,
             profilePicUrl,
-            lid: check.lid || null
+            lid: check.lid || contact?.lid || dir?.lid || null,
+            isBusiness: Boolean(dir?.isBusiness)
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -915,7 +960,7 @@ router.get('/:sessionId/chats', requireConnection, (req, res) => {
             || chat.pushName
             || contact?.name
             || contact?.notify
-            || lastMsg?.pushName
+            || (!lastMsg?.key?.fromMe ? lastMsg?.pushName : null)
             || null;
 
         return {
@@ -951,6 +996,19 @@ router.post('/:sessionId/chats/mark-unread', requireConnection, async (req, res)
     }
 });
 
+router.post('/:sessionId/chats/fetch-history', requireConnection, async (req, res) => {
+    try {
+        const { jid, count } = req.body || {};
+        if (!jid) {
+            return res.status(400).json({ success: false, error: 'Parâmetro "jid" é obrigatório.' });
+        }
+        const result = await whatsapp.fetchChatHistory(req.params.sessionId, { jid, count });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Falha ao solicitar histórico sob demanda.', detail: error.message });
+    }
+});
+
 router.get('/:sessionId/contacts', requireConnection, (req, res) => {
     try {
         const store = whatsapp.getStore(req.params.sessionId);
@@ -971,8 +1029,9 @@ router.get('/:sessionId/contacts', requireConnection, (req, res) => {
                 const jid = c.id;
                 const contactNumber = jid.split('@')[0] || '';
                 const lidRecord = c.lid ? lidInfo.get(c.lid) : null;
-                const contactName = c.name || lidRecord?.name || c.notify || lidRecord?.notify || c.verifiedName || null;
-                let contactPushName = c.notify || lidRecord?.notify || null;
+                const dir = whatsapp.globalDirectory.resolveIdentity(jid);
+                const contactName = c.name || lidRecord?.name || dir?.name || c.notify || lidRecord?.notify || c.verifiedName || null;
+                let contactPushName = c.notify || lidRecord?.notify || dir?.pushName || null;
                 if (!contactPushName) {
                     contactPushName = whatsapp.findGlobalPushName(jid) || contactName || null;
                 }
@@ -983,13 +1042,21 @@ router.get('/:sessionId/contacts', requireConnection, (req, res) => {
                         name: contactName,
                         pushName: contactPushName,
                         pushname: contactPushName,
-                        verifiedName: c.verifiedName || null,
-                        lid: c.lid || null
+                        crmName: dir?.crmName || null,
+                        verifiedName: c.verifiedName || dir?.verifiedName || null,
+                        lid: c.lid || dir?.lid || null,
+                        isMyContact: Boolean(c.name)
                     });
-                } else if (contactName && !uniqueContactsMap.get(jid).name) {
-                    uniqueContactsMap.get(jid).name = contactName;
-                    uniqueContactsMap.get(jid).pushName = contactPushName;
-                    uniqueContactsMap.get(jid).pushname = contactPushName;
+                } else {
+                    const existing = uniqueContactsMap.get(jid);
+                    if (contactName && !existing.name) {
+                        existing.name = contactName;
+                    }
+                    if (contactPushName && !existing.pushName) {
+                        existing.pushName = contactPushName;
+                        existing.pushname = contactPushName;
+                    }
+                    if (c.name) existing.isMyContact = true;
                 }
             }
         }
@@ -998,8 +1065,9 @@ router.get('/:sessionId/contacts', requireConnection, (req, res) => {
             if (c?.id && !c.id.endsWith('@g.us') && !c.id.endsWith('@lid')) {
                 const jid = c.id;
                 const contactNumber = jid.split('@')[0] || '';
-                const chatName = c.name || null;
-                const chatPushName = whatsapp.findGlobalPushName(jid) || chatName;
+                const dir = whatsapp.globalDirectory.resolveIdentity(jid);
+                const chatName = c.name || dir?.name || null;
+                const chatPushName = whatsapp.findGlobalPushName(jid) || dir?.pushName || chatName;
                 if (!uniqueContactsMap.has(jid)) {
                     uniqueContactsMap.set(jid, {
                         id: jid,
@@ -1007,8 +1075,10 @@ router.get('/:sessionId/contacts', requireConnection, (req, res) => {
                         name: chatName,
                         pushName: chatPushName,
                         pushname: chatPushName,
-                        verifiedName: null,
-                        lid: c.accountLid || null
+                        crmName: dir?.crmName || null,
+                        verifiedName: dir?.verifiedName || null,
+                        lid: c.accountLid || dir?.lid || null,
+                        isMyContact: false
                     });
                 }
             }
@@ -1073,6 +1143,19 @@ router.post('/:sessionId/contacts/sync', requireConnection, async (req, res) => 
         res.json({ success: true, result });
     } catch (error) {
         res.status(500).json({ success: false, error: 'Falha ao ressincronizar contatos.', detail: error.message });
+    }
+});
+
+router.post('/:sessionId/contacts/save-device', requireConnection, async (req, res) => {
+    try {
+        const { phone, name } = req.body || {};
+        if (!phone || !name) {
+            return res.status(400).json({ success: false, error: 'Parâmetros "phone" e "name" são obrigatórios.' });
+        }
+        const result = await whatsapp.saveContactToWhatsApp(req.params.sessionId, { phone, name });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Falha ao salvar contato no aparelho.', detail: error.message });
     }
 });
 
@@ -1142,16 +1225,9 @@ router.get('/:sessionId/groups/:groupJid/participants', requireConnection, async
         if (!groupJid.endsWith('@g.us')) groupJid += '@g.us';
         const sock = whatsapp.getSocket(req.params.sessionId);
         const metadata = await sock.groupMetadata(groupJid);
-        const participants = (metadata.participants || []).map(p => {
-            const rawPhone = p.phoneNumber ? p.phoneNumber.split('@')[0] : p.id.split('@')[0];
-            return {
-                id: p.id,
-                phoneNumber: rawPhone,
-                admin: p.admin || null,
-                isAdmin: p.admin === 'admin' || p.admin === 'superadmin',
-                isSuperAdmin: p.admin === 'superadmin'
-            };
-        });
+        const participants = await Promise.all(
+            (metadata.participants || []).map((p) => whatsapp.resolveParticipantIdentity(req.params.sessionId, p))
+        );
         res.json({ success: true, participants });
     } catch (error) {
         res.status(500).json({ error: 'Erro ao obter participantes do grupo.', detail: error.message });

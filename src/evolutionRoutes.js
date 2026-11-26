@@ -553,6 +553,10 @@ router.post('/chat/whatsappNumbers/:instance', requireConnection, async (req, re
             const [check] = await sock.onWhatsApp(clean);
             if (check && check.exists) {
                 const jid = check.jid;
+                if (check.lid) {
+                    whatsapp.globalDirectory.recordLidMapping(check.lid, jid);
+                }
+
                 let name = null;
 
                 // 1. Tenta pegar da store de contatos
@@ -566,38 +570,18 @@ router.post('/chat/whatsappNumbers/:instance', requireConnection, async (req, re
                     name = store.chats[jid].name || store.chats[jid].pushName;
                 }
 
-                // 3. Tenta pegar do último pushName das mensagens
+                // 3. Tenta pegar do último pushName de mensagens recebidas (!fromMe)
                 if (!name && store?.messages?.[jid]) {
                     const msgs = store.messages[jid];
                     for (let i = msgs.length - 1; i >= 0; i--) {
-                        if (msgs[i].pushName) {
+                        if (!msgs[i].key?.fromMe && msgs[i].pushName) {
                             name = msgs[i].pushName;
                             break;
                         }
                     }
                 }
 
-                // 4. Se for conta Business, busca businessProfile
-                if (!name) {
-                    try {
-                        const bProfile = await sock.getBusinessProfile(jid);
-                        if (bProfile && (bProfile.description || bProfile.email)) {
-                            name = bProfile.description || null;
-                        }
-                    } catch (_) { }
-                }
-
-                // 5. Se ainda não achou, tenta o status/recado público
-                if (!name) {
-                    try {
-                        const statusObj = await sock.fetchStatus(jid);
-                        if (statusObj && statusObj.status) {
-                            name = statusObj.status;
-                        }
-                    } catch (_) { }
-                }
-
-                // 6. Busca pushName
+                // 4. Busca pushName
                 let pushName = contact?.notify || null;
                 if (!pushName && store?.messages?.[jid]) {
                     const msgs = store.messages[jid];
@@ -615,14 +599,18 @@ router.post('/chat/whatsappNumbers/:instance', requireConnection, async (req, re
                     pushName = whatsapp.findGlobalPushName(jid) || null;
                 }
 
+                const dir = whatsapp.globalDirectory.resolveIdentity(jid)
+                    || whatsapp.globalDirectory.resolveIdentity(clean);
+
                 results.push({
                     jid: jid,
                     exists: true,
                     number: clean,
-                    name: name || null,
-                    pushName: pushName || name || null,
-                    pushname: pushName || name || null,
-                    lid: check.lid || null
+                    name: name || dir?.name || pushName || null,
+                    pushName: pushName || dir?.pushName || name || null,
+                    pushname: pushName || dir?.pushName || name || null,
+                    crmName: dir?.crmName || null,
+                    lid: check.lid || contact?.lid || dir?.lid || null
                 });
             } else {
                 results.push({
@@ -712,7 +700,7 @@ router.post('/chat/findChats/:instance', requireConnection, (req, res) => {
             const cleanNum = jid ? jid.split('@')[0] : '';
             const contact = store.contacts?.[jid] || (cleanNum ? store.contacts?.[cleanNum] : null);
             const pushName = contact?.notify
-                || lastMsg?.pushName
+                || (!lastMsg?.key?.fromMe ? lastMsg?.pushName : null)
                 || whatsapp.findGlobalPushName(jid)
                 || c.pushName
                 || c.name
@@ -782,8 +770,9 @@ const handleFindContacts = async (req, res) => {
             const jid = c.id;
             const contactNumber = jid.split('@')[0] || '';
             const lidRecord = c.lid ? lidInfo.get(c.lid) : null;
-            const contactName = c.name || lidRecord?.name || c.notify || lidRecord?.notify || c.verifiedName || null;
-            let contactPushName = c.notify || lidRecord?.notify || null;
+            const dir = whatsapp.globalDirectory.resolveIdentity(jid);
+            const contactName = c.name || lidRecord?.name || dir?.name || c.notify || lidRecord?.notify || c.verifiedName || null;
+            let contactPushName = c.notify || lidRecord?.notify || dir?.pushName || null;
             if (!contactPushName) {
                 contactPushName = whatsapp.findGlobalPushName(jid) || contactName || null;
             }
@@ -796,13 +785,21 @@ const handleFindContacts = async (req, res) => {
                     pushName: contactPushName,
                     pushname: contactPushName,
                     name: contactName,
-                    verifiedName: c.verifiedName || null,
-                    lid: c.lid || null
+                    crmName: dir?.crmName || null,
+                    verifiedName: c.verifiedName || dir?.verifiedName || null,
+                    lid: c.lid || dir?.lid || null,
+                    isMyContact: Boolean(c.name)
                 });
-            } else if (contactName && !uniqueContactsMap.get(jid).name) {
-                uniqueContactsMap.get(jid).name = contactName;
-                uniqueContactsMap.get(jid).pushName = contactPushName;
-                uniqueContactsMap.get(jid).pushname = contactPushName;
+            } else {
+                const existing = uniqueContactsMap.get(jid);
+                if (contactName && !existing.name) {
+                    existing.name = contactName;
+                }
+                if (contactPushName && !existing.pushName) {
+                    existing.pushName = contactPushName;
+                    existing.pushname = contactPushName;
+                }
+                if (c.name) existing.isMyContact = true;
             }
         }
 
@@ -810,8 +807,9 @@ const handleFindContacts = async (req, res) => {
             if (!c?.id || c.id.endsWith('@g.us') || c.id.endsWith('@lid')) continue;
             const jid = c.id;
             const contactNumber = jid.split('@')[0] || '';
-            const chatName = c.name || null;
-            const chatPushName = whatsapp.findGlobalPushName(jid) || chatName;
+            const dir = whatsapp.globalDirectory.resolveIdentity(jid);
+            const chatName = c.name || dir?.name || null;
+            const chatPushName = whatsapp.findGlobalPushName(jid) || dir?.pushName || chatName;
             if (!uniqueContactsMap.has(jid)) {
                 uniqueContactsMap.set(jid, {
                     id: jid,
@@ -820,8 +818,10 @@ const handleFindContacts = async (req, res) => {
                     pushName: chatPushName,
                     pushname: chatPushName,
                     name: chatName,
-                    verifiedName: null,
-                    lid: c.accountLid || null
+                    crmName: dir?.crmName || null,
+                    verifiedName: dir?.verifiedName || null,
+                    lid: c.accountLid || dir?.lid || null,
+                    isMyContact: false
                 });
             }
         }
@@ -848,7 +848,8 @@ const handleFindContacts = async (req, res) => {
         if (filterName) {
             contacts = contacts.filter(c =>
                 (c.name && c.name.toLowerCase().includes(filterName)) ||
-                (c.pushName && c.pushName.toLowerCase().includes(filterName))
+                (c.pushName && c.pushName.toLowerCase().includes(filterName)) ||
+                (c.crmName && c.crmName.toLowerCase().includes(filterName))
             );
         }
 
@@ -856,8 +857,44 @@ const handleFindContacts = async (req, res) => {
             contacts = contacts.filter(c =>
                 matchPhone(c.number, query) ||
                 (c.name && c.name.toLowerCase().includes(query)) ||
-                (c.pushName && c.pushName.toLowerCase().includes(query))
+                (c.pushName && c.pushName.toLowerCase().includes(query)) ||
+                (c.crmName && c.crmName.toLowerCase().includes(query))
             );
+        }
+
+        // Complementa com matches do diretório global (CRM + histórico unificado)
+        if (filterNumber || filterName || query) {
+            const existingJids = new Set(contacts.map(c => c.id));
+            const dirMatches = [];
+            if (filterNumber) {
+                const resolved = whatsapp.globalDirectory.resolveIdentity(filterNumber);
+                if (resolved) dirMatches.push(resolved);
+            }
+            const textTerm = filterName || query;
+            if (textTerm) {
+                const resolved = /^\d{8,}$/.test(textTerm)
+                    ? whatsapp.globalDirectory.resolveIdentity(textTerm)
+                    : null;
+                if (resolved) dirMatches.push(resolved);
+                dirMatches.push(...whatsapp.globalDirectory.searchIdentities(textTerm, 50));
+            }
+
+            for (const dir of dirMatches) {
+                if (!dir?.jid || existingJids.has(dir.jid)) continue;
+                existingJids.add(dir.jid);
+                contacts.push({
+                    id: dir.jid,
+                    remoteJid: dir.jid,
+                    number: dir.phone,
+                    pushName: dir.pushName || dir.name || null,
+                    pushname: dir.pushName || dir.name || null,
+                    name: dir.name || dir.pushName || null,
+                    crmName: dir.crmName || null,
+                    verifiedName: dir.verifiedName || null,
+                    lid: dir.lid || null,
+                    isMyContact: Boolean(dir.addressbookName)
+                });
+            }
         }
 
         // Se buscou por um número específico (>=10 dígitos) e não estava na store, resolve online via onWhatsApp
@@ -866,16 +903,23 @@ const handleFindContacts = async (req, res) => {
             try {
                 const [check] = await sock.onWhatsApp(targetPhoneLookup);
                 if (check && check.exists && check.jid) {
-                    const resolvedName = whatsapp.findGlobalPushName(check.jid) || null;
+                    if (check.lid) {
+                        whatsapp.globalDirectory.recordLidMapping(check.lid, check.jid);
+                    }
+                    const dir = whatsapp.globalDirectory.resolveIdentity(check.jid);
+                    const resolvedName = dir?.name || whatsapp.findGlobalPushName(check.jid) || null;
+                    const resolvedPush = dir?.pushName || resolvedName;
                     contacts.push({
                         id: check.jid,
                         remoteJid: check.jid,
                         number: check.jid.split('@')[0],
-                        pushName: resolvedName,
-                        pushname: resolvedName,
+                        pushName: resolvedPush,
+                        pushname: resolvedPush,
                         name: resolvedName,
-                        verifiedName: null,
-                        lid: check.lid || null
+                        crmName: dir?.crmName || null,
+                        verifiedName: dir?.verifiedName || null,
+                        lid: check.lid || dir?.lid || null,
+                        isMyContact: Boolean(dir?.addressbookName)
                     });
                 }
             } catch (_) { }
@@ -911,6 +955,38 @@ router.post('/chat/syncContacts/:instance', requireConnection, async (req, res) 
         const { instance } = req.params;
         const result = await whatsapp.resyncSessionContacts(instance);
         res.json({ status: 'SUCCESS', result });
+    } catch (e) {
+        res.status(500).json({ status: 'ERROR', message: e.message });
+    }
+});
+
+// POST /chat/fetchHistoryOnDemand/:instance (Solicita histórico sob demanda para um chat/grupo)
+router.post('/chat/fetchHistoryOnDemand/:instance', requireConnection, async (req, res) => {
+    try {
+        const { instance } = req.params;
+        const { jid, remoteJid, count } = req.body || {};
+        const targetJid = jid || remoteJid;
+        if (!targetJid) {
+            return res.status(400).json({ status: 'ERROR', message: 'Parâmetro jid é obrigatório.' });
+        }
+        const result = await whatsapp.fetchChatHistory(instance, { jid: targetJid, count });
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ status: 'ERROR', message: e.message });
+    }
+});
+
+// POST /chat/saveContactOnDevice/:instance (Salva/edita contato na agenda do aparelho WhatsApp)
+router.post('/chat/saveContactOnDevice/:instance', requireConnection, async (req, res) => {
+    try {
+        const { instance } = req.params;
+        const { phone, number, name } = req.body || {};
+        const targetPhone = phone || number;
+        if (!targetPhone || !name) {
+            return res.status(400).json({ status: 'ERROR', message: 'Parâmetros phone e name são obrigatórios.' });
+        }
+        const result = await whatsapp.saveContactToWhatsApp(instance, { phone: targetPhone, name });
+        res.json(result);
     } catch (e) {
         res.status(500).json({ status: 'ERROR', message: e.message });
     }
@@ -1011,14 +1087,23 @@ router.get('/group/fetchAllGroups/:instance', requireConnection, async (req, res
             }
         }
 
-        const list = Object.values(groupsObj).map(g => ({
-            id: g.id,
-            subject: g.subject || 'Sem Nome',
-            name: g.subject || 'Sem Nome',
-            owner: g.owner || null,
-            creation: g.creation || null,
-            size: g.participants ? g.participants.length : (g.size || 0),
-            participants: req.query.getParticipants === 'true' ? g.participants : undefined
+        const includeParticipants = req.query.getParticipants === 'true';
+        const list = await Promise.all(Object.values(groupsObj).map(async (g) => {
+            let participants;
+            if (includeParticipants) {
+                participants = await Promise.all(
+                    (g.participants || []).map((p) => whatsapp.resolveParticipantIdentity(instance, p))
+                );
+            }
+            return {
+                id: g.id,
+                subject: g.subject || 'Sem Nome',
+                name: g.subject || 'Sem Nome',
+                owner: g.owner || null,
+                creation: g.creation || null,
+                size: g.participants ? g.participants.length : (g.size || 0),
+                participants
+            };
         }));
 
         res.json(list);
@@ -1043,14 +1128,9 @@ router.get('/group/participants/:instance', requireConnection, async (req, res) 
         const sock = whatsapp.getSocket(instance);
         const metadata = await sock.groupMetadata(groupJid);
 
-        const participants = (metadata.participants || []).map(p => {
-            const userNumber = p.id.split('@')[0];
-            return {
-                id: p.id,
-                phoneNumber: userNumber,
-                admin: p.admin || null // 'admin' | 'superadmin' | null
-            };
-        });
+        const participants = await Promise.all(
+            (metadata.participants || []).map((p) => whatsapp.resolveParticipantIdentity(instance, p))
+        );
 
         res.json({ participants });
     } catch (e) {

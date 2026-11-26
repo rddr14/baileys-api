@@ -14,6 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { useSQLiteAuthState, deleteSQLiteSession, listSavedSessionIds } = require('./sqliteAuthState');
+const globalDirectory = require('./globalDirectory');
 
 const BASE_DIR = path.join(__dirname, '..');
 const GROUP_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -248,23 +249,183 @@ function normalizeUserJid(jid) {
     return `${user.split(':')[0]}@${server}`;
 }
 
-// Salva o pushName (nome público do WhatsApp) do remetente em store.contacts[].notify.
-// Funciona para chats privados e grupos. NUNCA altera contact.name (nome da agenda).
-function rememberPushName(store, msg) {
-    const pushName = typeof msg?.pushName === 'string' ? msg.pushName.trim() : '';
-    if (!pushName || msg?.key?.fromMe) return false;
+function indexLidPair(candidates) {
+    const normalized = (candidates || []).map(normalizeUserJid).filter(Boolean);
+    const phoneJid = normalized.find((j) => j.endsWith('@s.whatsapp.net')) || null;
+    const lidJid = normalized.find((j) => j.endsWith('@lid')) || null;
+    if (phoneJid && lidJid) {
+        globalDirectory.recordLidMapping(lidJid, phoneJid);
+    }
+    return { phoneJid, lidJid };
+}
 
-    const remoteJid = msg.key?.remoteJid || '';
+function indexGroupParticipants(participants) {
+    if (!Array.isArray(participants)) return;
+    for (const p of participants) {
+        if (!p || typeof p !== 'object') continue;
+        indexLidPair([p.id, p.phoneNumber, p.lid]);
+    }
+}
+
+function extractVcardsFromMessage(message) {
+    if (!message || typeof message !== 'object') return;
+    const content = unwrapBaileysMessageContent(message);
+    const cards = [];
+    if (content.contactMessage) {
+        cards.push(content.contactMessage);
+    }
+    if (Array.isArray(content.contactsArrayMessage?.contacts)) {
+        cards.push(...content.contactsArrayMessage.contacts);
+    }
+
+    for (const card of cards) {
+        const vcard = typeof card?.vcard === 'string' ? card.vcard : '';
+        let rawPhone = null;
+        const waidMatch = vcard.match(/waid=(\d+)/i);
+        if (waidMatch) {
+            rawPhone = waidMatch[1];
+        } else {
+            const telMatch = vcard.match(/TEL[^:]*:([+\d\s()-]+)/i);
+            if (telMatch) rawPhone = telMatch[1];
+        }
+        const phone = globalDirectory.normalizePhone(rawPhone);
+        if (!phone) continue;
+
+        let vcardName = typeof card?.displayName === 'string' ? card.displayName.trim() : '';
+        if (!vcardName && vcard) {
+            const fnMatch = vcard.match(/^FN(?:;[^:]*)?:([^\r\n]+)/im);
+            if (fnMatch) vcardName = fnMatch[1].trim();
+        }
+        if (!globalDirectory.isInvalidName(vcardName)) {
+            globalDirectory.upsertIdentity({ phone, vcardName });
+        }
+    }
+}
+
+const CONTACT_MERGE_FIELDS = ['name', 'notify', 'verifiedName', 'lid', 'phoneNumber', 'imgUrl', 'status'];
+
+function hasValidContactLabel(contact) {
+    if (!contact) return false;
+    return Boolean(
+        (contact.name && !globalDirectory.isInvalidName(contact.name)) ||
+        (contact.notify && !globalDirectory.isInvalidName(contact.notify)) ||
+        (contact.verifiedName && !globalDirectory.isInvalidName(contact.verifiedName))
+    );
+}
+
+// Mescla um contato na store de forma não-destrutiva e sincroniza com o diretório global.
+function mergeContact(store, incoming, options = {}) {
+    if (!store || !incoming?.id || isIgnoredJid(incoming.id) || incoming.id.endsWith('@g.us')) {
+        return false;
+    }
+
+    const lid = globalDirectory.normalizeLid(incoming.lid) || globalDirectory.normalizeLid(incoming.id);
+    let phone = globalDirectory.normalizePhone(incoming.phoneNumber) || globalDirectory.normalizePhone(incoming.id);
+    if (!phone && lid) {
+        const mapped = globalDirectory.resolvePhoneFromLid(lid);
+        if (mapped?.phone) phone = mapped.phone;
+    }
+
+    const prevContact = store.contacts[incoming.id] || (phone ? store.contacts[`${phone}@s.whatsapp.net`] : null);
+    const prevDir = (phone || lid) ? globalDirectory.resolveIdentity(phone || lid) : null;
+    const hadPrevName = hasValidContactLabel(prevContact)
+        || Boolean(prevDir?.addressbookName || prevDir?.pushName || prevDir?.verifiedName);
+
+    let changed = false;
+    const applyMerge = (key, defaultId) => {
+        if (!store.contacts[key]) {
+            store.contacts[key] = { id: defaultId };
+            changed = true;
+        }
+        const target = store.contacts[key];
+        for (const field of CONTACT_MERGE_FIELDS) {
+            const val = incoming[field];
+            if (val === undefined || val === null || val === '') continue;
+            if ((field === 'name' || field === 'notify' || field === 'verifiedName') && globalDirectory.isInvalidName(val)) {
+                continue;
+            }
+            if (target[field] !== val) {
+                target[field] = val;
+                changed = true;
+            }
+        }
+    };
+
+    applyMerge(incoming.id, incoming.id);
+    if (incoming.id.endsWith('@s.whatsapp.net')) {
+        const num = incoming.id.split('@')[0];
+        if (num) applyMerge(num, incoming.id);
+    }
+
+    if (lid && phone) {
+        globalDirectory.recordLidMapping(lid, phone);
+    }
+    if (phone || lid) {
+        globalDirectory.upsertIdentity({
+            phone,
+            lid,
+            addressbookName: incoming.name,
+            pushName: incoming.notify,
+            verifiedName: incoming.verifiedName
+        });
+    }
+
+    const incomingName = !globalDirectory.isInvalidName(incoming.name) ? incoming.name.trim() : null;
+    const incomingNotify = !globalDirectory.isInvalidName(incoming.notify) ? incoming.notify.trim() : null;
+    const incomingVerified = !globalDirectory.isInvalidName(incoming.verifiedName) ? incoming.verifiedName.trim() : null;
+    const resolvedName = incomingNotify || incomingName || incomingVerified;
+
+    if (!options.silent && store._sessionId && !hadPrevName && phone && resolvedName) {
+        sendWebhook(store._sessionId, 'contact.resolved', {
+            phone,
+            jid: `${phone}@s.whatsapp.net`,
+            lid: lid || prevDir?.lid || null,
+            name: incomingName || incomingNotify || incomingVerified,
+            pushName: incomingNotify || incomingName || incomingVerified
+        });
+    }
+
+    return changed;
+}
+
+// Salva o pushName (nome público do WhatsApp) do remetente em store.contacts[].notify e no diretório global.
+// Funciona para chats privados e grupos. NUNCA altera contact.name (nome da agenda).
+function rememberPushName(store, msg, options = {}) {
+    const remoteJid = msg?.key?.remoteJid || '';
     if (!remoteJid || isIgnoredJid(remoteJid)) return false;
 
     const candidates = remoteJid.endsWith('@g.us')
         ? [msg.key?.participant, msg.key?.participantAlt]
         : [remoteJid, msg.key?.remoteJidAlt];
 
-    const normalized = candidates.map(normalizeUserJid).filter(Boolean);
-    const phoneJid = normalized.find((j) => j.endsWith('@s.whatsapp.net')) || null;
-    const lidJid = normalized.find((j) => j.endsWith('@lid')) || null;
+    // Sempre registra o par LID <-> PN quando presente, mesmo sem pushName ou quando fromMe=true
+    const { phoneJid, lidJid } = indexLidPair(candidates);
+
+    // Extrai eventuais vCards compartilhados na mensagem
+    if (msg?.message) {
+        extractVcardsFromMessage(msg.message);
+    }
+
+    if (msg?.key?.fromMe) return false;
+
+    const rawPushName = typeof msg?.pushName === 'string' ? msg.pushName.trim() : '';
+    const rawVerifiedBiz = typeof msg?.verifiedBizName === 'string' ? msg.verifiedBizName.trim() : '';
+    const pushName = !globalDirectory.isInvalidName(rawPushName) ? rawPushName : '';
+    const verifiedBizName = !globalDirectory.isInvalidName(rawVerifiedBiz) ? rawVerifiedBiz : '';
+
+    if (!pushName && !verifiedBizName) return false;
     if (!phoneJid && !lidJid) return false;
+
+    const cleanPhone = globalDirectory.normalizePhone(phoneJid)
+        || (lidJid ? globalDirectory.resolvePhoneFromLid(lidJid)?.phone || null : null);
+    const resolvedPhoneJid = cleanPhone ? `${cleanPhone}@s.whatsapp.net` : phoneJid;
+
+    const prevPhoneContact = resolvedPhoneJid ? store.contacts?.[resolvedPhoneJid] : null;
+    const prevLidContact = lidJid ? store.contacts?.[lidJid] : null;
+    const prevDir = (cleanPhone || lidJid) ? globalDirectory.resolveIdentity(cleanPhone || lidJid) : null;
+    const hadPrevName = hasValidContactLabel(prevPhoneContact)
+        || hasValidContactLabel(prevLidContact)
+        || Boolean(prevDir?.addressbookName || prevDir?.pushName || prevDir?.verifiedName);
 
     let changed = false;
     const apply = (key, idJid) => {
@@ -273,22 +434,45 @@ function rememberPushName(store, msg) {
             changed = true;
         }
         const c = store.contacts[key];
-        if (c.notify !== pushName) {
+        if (pushName && c.notify !== pushName) {
             c.notify = pushName;
             changed = true;
         }
-        if (phoneJid && lidJid) {
+        if (verifiedBizName && c.verifiedName !== verifiedBizName) {
+            c.verifiedName = verifiedBizName;
+            changed = true;
+        }
+        if (resolvedPhoneJid && lidJid) {
             if (!c.lid) { c.lid = lidJid; changed = true; }
-            if (!c.phoneNumber) { c.phoneNumber = phoneJid; changed = true; }
+            if (!c.phoneNumber) { c.phoneNumber = resolvedPhoneJid; changed = true; }
         }
     };
 
-    if (phoneJid) {
-        apply(phoneJid, phoneJid);
-        const num = phoneJid.split('@')[0];
-        if (num) apply(num, phoneJid);
+    if (resolvedPhoneJid) {
+        apply(resolvedPhoneJid, resolvedPhoneJid);
+        const num = resolvedPhoneJid.split('@')[0];
+        if (num) apply(num, resolvedPhoneJid);
     }
     if (lidJid) apply(lidJid, lidJid);
+
+    globalDirectory.upsertIdentity({
+        phone: resolvedPhoneJid,
+        lid: lidJid,
+        pushName: pushName || null,
+        verifiedName: verifiedBizName || null,
+        isBusiness: Boolean(verifiedBizName)
+    });
+
+    const resolvedName = pushName || verifiedBizName;
+    if (!options.silent && store._sessionId && !hadPrevName && cleanPhone && resolvedName) {
+        sendWebhook(store._sessionId, 'contact.resolved', {
+            phone: cleanPhone,
+            jid: resolvedPhoneJid,
+            lid: lidJid || prevDir?.lid || null,
+            name: resolvedName,
+            pushName: resolvedName
+        });
+    }
 
     return changed;
 }
@@ -308,6 +492,7 @@ function createStore(sessionId, authDb) {
     let saveTimer = null;
 
     const store = {
+        _sessionId: sessionId,
         chats: snapshot.chats || {},
         contacts: snapshot.contacts || {},
         messages: snapshot.messages || {},
@@ -344,8 +529,13 @@ function createStore(sessionId, authDb) {
             }
         },
         bind: (ev) => {
-            ev.on('messaging-history.set', ({ chats, contacts, messages }) => {
+            ev.on('messaging-history.set', ({ chats, contacts, messages, lidPnMappings }) => {
                 let changed = false;
+                for (const m of (lidPnMappings || [])) {
+                    if (m) {
+                        globalDirectory.recordLidMapping(m.lid || m.lidJid, m.pn || m.pnJid || m.phoneNumber);
+                    }
+                }
                 for (const chat of (chats || [])) {
                     if (chat?.id && !isIgnoredJid(chat.id)) {
                         store.chats[chat.id] = chat;
@@ -353,10 +543,7 @@ function createStore(sessionId, authDb) {
                     }
                 }
                 for (const contact of (contacts || [])) {
-                    if (contact?.id && !isIgnoredJid(contact.id)) {
-                        store.contacts[contact.id] = contact;
-                        const num = contact.id.split('@')[0];
-                        if (num) store.contacts[num] = contact;
+                    if (mergeContact(store, contact)) {
                         changed = true;
                     }
                 }
@@ -415,6 +602,19 @@ function createStore(sessionId, authDb) {
                 if (changed) store.scheduleStoreSave();
             });
 
+            ev.on('messages.reaction', (reactions) => {
+                for (const r of (reactions || [])) {
+                    const keys = [r?.key, r?.reaction?.key];
+                    for (const k of keys) {
+                        if (!k) continue;
+                        const candidates = k.remoteJid?.endsWith('@g.us')
+                            ? [k.participant, k.participantAlt]
+                            : [k.remoteJid, k.remoteJidAlt, k.participant, k.participantAlt];
+                        indexLidPair(candidates);
+                    }
+                }
+            });
+
             ev.on('message-receipt.update', (m) => {
                 sendWebhook(sessionId, 'message-receipt.update', m);
                 for (const item of (m || [])) {
@@ -458,17 +658,6 @@ function createStore(sessionId, authDb) {
                 }
             });
 
-            ev.on('chats.set', ({ chats }) => {
-                let changed = false;
-                for (const chat of (chats || [])) {
-                    if (chat?.id && !isIgnoredJid(chat.id)) {
-                        store.chats[chat.id] = chat;
-                        changed = true;
-                    }
-                }
-                if (changed) store.scheduleStoreSave();
-            });
-
             ev.on('chats.upsert', (newChats) => {
                 let changed = false;
                 for (const chat of (newChats || [])) {
@@ -491,26 +680,10 @@ function createStore(sessionId, authDb) {
                 if (changed) store.scheduleStoreSave();
             });
 
-            ev.on('contacts.set', ({ contacts }) => {
-                let changed = false;
-                for (const contact of (contacts || [])) {
-                    if (contact?.id && !isIgnoredJid(contact.id)) {
-                        store.contacts[contact.id] = contact;
-                        const num = contact.id.split('@')[0];
-                        if (num) store.contacts[num] = contact;
-                        changed = true;
-                    }
-                }
-                if (changed) store.scheduleStoreSave();
-            });
-
             ev.on('contacts.upsert', (newContacts) => {
                 let changed = false;
                 for (const contact of (newContacts || [])) {
-                    if (contact?.id && !isIgnoredJid(contact.id)) {
-                        store.contacts[contact.id] = contact;
-                        const num = contact.id.split('@')[0];
-                        if (num) store.contacts[num] = contact;
+                    if (mergeContact(store, contact)) {
                         changed = true;
                     }
                 }
@@ -520,23 +693,26 @@ function createStore(sessionId, authDb) {
             ev.on('contacts.update', (updates) => {
                 let changed = false;
                 for (const update of (updates || [])) {
-                    if (!update?.id || isIgnoredJid(update.id)) continue;
-                    if (store.contacts[update.id]) {
-                        Object.assign(store.contacts[update.id], update);
-                        changed = true;
-                    }
-                    const num = update.id.split('@')[0];
-                    if (num && store.contacts[num]) {
-                        Object.assign(store.contacts[num], update);
+                    if (mergeContact(store, update)) {
                         changed = true;
                     }
                 }
                 if (changed) store.scheduleStoreSave();
             });
 
+            ev.on('lid-mapping.update', (mappings) => {
+                const list = Array.isArray(mappings) ? mappings : [mappings];
+                for (const m of list) {
+                    if (m) {
+                        globalDirectory.recordLidMapping(m.lid || m.lidJid, m.pn || m.pnJid || m.phoneNumber);
+                    }
+                }
+            });
+
             ev.on('groups.upsert', (groups) => {
                 for (const group of (groups || [])) {
                     setCachedGroup(sessionId, group);
+                    indexGroupParticipants(group?.participants);
                 }
             });
 
@@ -547,22 +723,37 @@ function createStore(sessionId, authDb) {
                     if (cached) {
                         setCachedGroup(sessionId, { ...cached, ...update });
                     }
+                    indexGroupParticipants(update?.participants);
                 }
+            });
+
+            ev.on('group-participants.update', ({ participants }) => {
+                indexGroupParticipants(participants);
             });
         }
     };
 
-    // Backfill: extrai pushNames das mensagens já persistidas (inclusive grupos)
+    // Backfill: sincroniza contatos já salvos na sessão para o diretório global
+    const seenContactIds = new Set();
+    let contactsSynced = 0;
+    for (const c of Object.values(store.contacts || {})) {
+        if (!c?.id || seenContactIds.has(c.id)) continue;
+        seenContactIds.add(c.id);
+        mergeContact(store, c, { silent: true });
+        contactsSynced++;
+    }
+
+    // Backfill: extrai pushNames, vCards e mapeamentos LID<->PN das mensagens já persistidas (inclusive grupos)
     let backfilled = 0;
     for (const list of Object.values(store.messages || {})) {
         if (!Array.isArray(list)) continue;
         for (const msg of list) {
-            if (rememberPushName(store, msg)) backfilled++;
+            if (rememberPushName(store, msg, { silent: true })) backfilled++;
         }
     }
-    if (backfilled > 0) {
-        console.log(`[${sessionId}] Backfill de pushName: ${backfilled} contato(s) atualizados a partir do histórico.`);
-        store.scheduleStoreSave();
+    if (backfilled > 0 || contactsSynced > 0) {
+        console.log(`[${sessionId}] Backfill: ${contactsSynced} contato(s) sincronizados e ${backfilled} pushName(s) atualizados a partir do histórico.`);
+        if (backfilled > 0) store.scheduleStoreSave();
     }
 
     return store;
@@ -1016,15 +1207,33 @@ function updateContact(sessionId, { number, name, pushName }) {
     return store.contacts[jid];
 }
 
-function findGlobalPushName(phoneOrJid, excludeSessionId = null) {
-    if (!phoneOrJid) return null;
-    const cleanNumber = String(phoneOrJid).replace(/[^0-9]/g, '');
+function findGlobalPushName(phoneOrJidOrLid, excludeSessionId = null) {
+    if (!phoneOrJidOrLid) return null;
+
+    const resolved = globalDirectory.resolveIdentity(phoneOrJidOrLid);
+    if (resolved?.pushName || resolved?.name) {
+        return resolved.pushName || resolved.name;
+    }
+
+    const rawStr = String(phoneOrJidOrLid);
+    if (rawStr.includes('@lid')) {
+        const lidKey = globalDirectory.normalizeLid(rawStr) || rawStr;
+        for (const [sessId, sess] of Object.entries(sessions)) {
+            if (sessId === excludeSessionId) continue;
+            const c = sess?.store?.contacts?.[lidKey];
+            if (c?.notify && !globalDirectory.isInvalidName(c.notify)) return c.notify;
+            if (c?.name && !globalDirectory.isInvalidName(c.name)) return c.name;
+        }
+        return null;
+    }
+
+    const cleanNumber = rawStr.replace(/@.*/g, '').replace(/[^0-9]/g, '');
     if (!cleanNumber) return null;
     const jid = `${cleanNumber}@s.whatsapp.net`;
     const last8 = cleanNumber.length >= 8 ? cleanNumber.slice(-8) : cleanNumber;
 
     // 1. Verifica se alguma sessão conectada é do próprio dono deste número
-    for (const [sessId, sess] of Object.entries(sessions)) {
+    for (const [, sess] of Object.entries(sessions)) {
         const creds = sess?.sock?.authState?.creds;
         const me = creds?.me;
         if (me?.name) {
@@ -1046,7 +1255,7 @@ function findGlobalPushName(phoneOrJid, excludeSessionId = null) {
             const msgs = store.messages?.[targetKey];
             if (msgs && Array.isArray(msgs)) {
                 for (let i = msgs.length - 1; i >= 0; i--) {
-                    if (!msgs[i].key?.fromMe && msgs[i].pushName) {
+                    if (!msgs[i].key?.fromMe && msgs[i].pushName && !globalDirectory.isInvalidName(msgs[i].pushName)) {
                         return msgs[i].pushName;
                     }
                 }
@@ -1056,16 +1265,178 @@ function findGlobalPushName(phoneOrJid, excludeSessionId = null) {
         // Verifica contatos das outras sessões
         for (const targetKey of [jid, cleanNumber]) {
             const c = store.contacts?.[targetKey];
-            if (c?.notify && c.notify !== c.name) {
+            if (c?.notify && c.notify !== c.name && !globalDirectory.isInvalidName(c.notify)) {
                 return c.notify;
             }
-            if (c?.name && c.name !== 'Você') {
+            if (c?.name && !globalDirectory.isInvalidName(c.name)) {
                 return c.name;
             }
         }
     }
 
     return null;
+}
+
+/**
+ * Resolves full participant identity (PN, LID, session contact, global directory & CRM).
+ */
+async function resolveParticipantIdentity(sessionId, p) {
+    const participant = typeof p === 'string' ? { id: p } : (p || {});
+    const sock = sessions[sessionId]?.sock || null;
+    const store = getStore(sessionId);
+
+    let lid = globalDirectory.normalizeLid(participant.id)
+        || globalDirectory.normalizeLid(participant.lid)
+        || null;
+
+    let phoneJid = null;
+    if (typeof participant.phoneNumber === 'string' && participant.phoneNumber.endsWith('@s.whatsapp.net')) {
+        phoneJid = normalizeUserJid(participant.phoneNumber);
+    } else if (typeof participant.id === 'string' && participant.id.endsWith('@s.whatsapp.net')) {
+        phoneJid = normalizeUserJid(participant.id);
+    } else if (participant.phoneNumber) {
+        const cleanFromField = globalDirectory.normalizePhone(participant.phoneNumber);
+        if (cleanFromField) phoneJid = `${cleanFromField}@s.whatsapp.net`;
+    }
+
+    if (lid && phoneJid) {
+        globalDirectory.recordLidMapping(lid, phoneJid);
+    } else if (lid && !phoneJid) {
+        const mapped = globalDirectory.resolvePhoneFromLid(lid);
+        if (mapped?.jid) {
+            phoneJid = mapped.jid;
+        } else if (sock?.signalRepository?.lidMapping?.getPNForLID) {
+            try {
+                const pn = await sock.signalRepository.lidMapping.getPNForLID(lid);
+                const cleanPn = globalDirectory.normalizePhone(pn);
+                if (cleanPn) {
+                    phoneJid = `${cleanPn}@s.whatsapp.net`;
+                    globalDirectory.recordLidMapping(lid, phoneJid);
+                }
+            } catch (_) {}
+        }
+    }
+
+    const cleanPhone = globalDirectory.normalizePhone(phoneJid) || null;
+    const dir = globalDirectory.resolveIdentity(phoneJid || lid);
+
+    const contactsMap = store?.contacts || {};
+    const phoneContact = (phoneJid && contactsMap[phoneJid]) || (cleanPhone && contactsMap[cleanPhone]) || null;
+    const lidContact = (lid && contactsMap[lid]) || null;
+    const sessionContact = (phoneContact || lidContact) ? {
+        name: phoneContact?.name || lidContact?.name || null,
+        notify: phoneContact?.notify || lidContact?.notify || null,
+        verifiedName: phoneContact?.verifiedName || lidContact?.verifiedName || null
+    } : null;
+
+    return {
+        id: phoneJid || participant.id,
+        jid: phoneJid || participant.id,
+        lid: lid || dir?.lid || null,
+        phoneNumber: cleanPhone || dir?.phone || null,
+        name: sessionContact?.name || dir?.name || sessionContact?.notify || null,
+        pushName: sessionContact?.notify || dir?.pushName || sessionContact?.name || dir?.name || null,
+        pushname: sessionContact?.notify || dir?.pushName || sessionContact?.name || dir?.name || null,
+        verifiedName: sessionContact?.verifiedName || dir?.verifiedName || null,
+        crmName: dir?.crmName || null,
+        crmContext: dir?.crmContext || null,
+        isBusiness: Boolean(dir?.isBusiness),
+        isMyContact: Boolean(sessionContact?.name || dir?.addressbookName),
+        admin: participant.admin || null,
+        isAdmin: participant.admin === 'admin' || participant.admin === 'superadmin',
+        isSuperAdmin: participant.admin === 'superadmin'
+    };
+}
+
+function normalizeChatTargetJid(jid) {
+    if (!jid || typeof jid !== 'string') return null;
+    const trimmed = jid.trim();
+    if (!trimmed) return null;
+    if (trimmed.includes('@')) return trimmed;
+    if (trimmed.includes('-')) return `${trimmed}@g.us`;
+    const clean = trimmed.replace(/\D/g, '');
+    if (!clean) return null;
+    return `${clean}@s.whatsapp.net`;
+}
+
+/**
+ * Requests on-demand message history from WhatsApp for a given chat/group JID.
+ */
+async function fetchChatHistory(sessionId, { jid, count = 50 } = {}) {
+    const sock = getSocket(sessionId);
+    const store = getStore(sessionId);
+    const targetJid = normalizeChatTargetJid(jid);
+    if (!targetJid) {
+        throw new Error('Parâmetro "jid" inválido ou obrigatório.');
+    }
+
+    const msgCount = Math.max(1, Math.min(500, Number(count) || 50));
+    const list = Array.isArray(store?.messages?.[targetJid]) ? store.messages[targetJid] : [];
+
+    let oldestMsgKey = { remoteJid: targetJid, fromMe: false, id: 'init' };
+    let oldestMsgTimestamp = Date.now();
+
+    if (list.length > 0) {
+        let oldest = list[0];
+        let minTs = Infinity;
+        for (const m of list) {
+            let rawTs = m?.messageTimestamp;
+            if (rawTs && typeof rawTs === 'object' && typeof rawTs.low === 'number') {
+                rawTs = rawTs.low;
+            }
+            const numTs = Number(rawTs);
+            if (Number.isFinite(numTs) && numTs > 0 && numTs < minTs) {
+                minTs = numTs;
+                oldest = m;
+            }
+        }
+        if (oldest?.key?.id) {
+            oldestMsgKey = {
+                remoteJid: oldest.key.remoteJid || targetJid,
+                fromMe: Boolean(oldest.key.fromMe),
+                id: oldest.key.id
+            };
+        }
+        if (Number.isFinite(minTs) && minTs > 0) {
+            oldestMsgTimestamp = minTs < 1e12 ? minTs * 1000 : minTs;
+        }
+    }
+
+    await sock.fetchMessageHistory(msgCount, oldestMsgKey, oldestMsgTimestamp || Date.now());
+    return {
+        success: true,
+        message: 'Solicitação de histórico enviada ao WhatsApp'
+    };
+}
+
+/**
+ * Saves or updates a contact in the WhatsApp device address book, local store, and global directory.
+ */
+async function saveContactToWhatsApp(sessionId, { phone, name } = {}) {
+    const sock = getSocket(sessionId);
+    const store = getStore(sessionId);
+    const cleanNumber = String(phone || '').replace(/@.*/g, '').replace(/\D/g, '');
+    const cleanName = typeof name === 'string' ? name.trim() : '';
+
+    if (!cleanNumber || !cleanName) {
+        throw new Error('Parâmetros "phone" e "name" são obrigatórios.');
+    }
+
+    const jid = `${cleanNumber}@s.whatsapp.net`;
+    if (typeof sock.addOrEditContact === 'function') {
+        await sock.addOrEditContact(jid, { fullName: cleanName });
+    }
+
+    if (store) {
+        mergeContact(store, { id: jid, name: cleanName, phoneNumber: jid });
+        if (store.scheduleStoreSave) {
+            store.scheduleStoreSave();
+        }
+    } else {
+        globalDirectory.upsertIdentity({ phone: cleanNumber, addressbookName: cleanName });
+    }
+
+    return { success: true, jid, name: cleanName };
 }
 
 module.exports = {
@@ -1091,5 +1462,9 @@ module.exports = {
     waitForDeliveryAck,
     resyncSessionContacts,
     updateContact,
-    findGlobalPushName
+    findGlobalPushName,
+    resolveParticipantIdentity,
+    fetchChatHistory,
+    saveContactToWhatsApp,
+    globalDirectory
 };

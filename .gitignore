@@ -9,6 +9,7 @@ yarn-error.log*
 
 # Sessões do WhatsApp e dados locais sensíveis
 auth_info_baileys_*
+global_directory.db*
 baileys_store.json
 labels_*.json
 webhooks.json
